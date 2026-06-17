@@ -1,0 +1,46 @@
+{
+  "project": {
+    "name": "MIRAI_Site_Carbon_Navigator",
+    "start_date": "2026-06-17",
+    "release_deadline": "2026-12-17",
+    "phase_mode": "development"
+  },
+  "goal": "MVP Release Candidate 完成 — 全機能動作確認・CI成功・PR作成済み",
+  "phase": "Verify",
+  "kpi": {
+    "success_rate_target": 0.9,
+    "ci_success_rate": 1.0,
+    "test_pass_rate": 1.0,
+    "security_critical": 0,
+    "blocker_count": 0
+  },
+  "execution": {
+    "max_duration_minutes": 300,
+    "repair_count": 0,
+    "max_repair": 5,
+    "same_error_limit": 2
+  },
+  "automation": {
+    "auto_issue_generation": true,
+    "self_evolution": true
+  },
+  "completed_issues": [
+    "F-01: 工事登録API実装",
+    "F-02: 活動量登録API実装",
+    "F-03: 排出係数管理API実装",
+    "F-04: CO2算定エンジン実装",
+    "F-05: 月次レポート(Excel)実装",
+    "F-06: 削減ナビ実装",
+    "Frontend: Bootstrap 5 SPA実装",
+    "Tests: 59件全通過"
+  ],
+  "blocked_issues": [],
+  "learning": {
+    "failure_patterns": [],
+    "success_patterns": [
+      "FastAPI + SQLite + SQLAlchemy でMVPを高速構築",
+      "lifespan context manager で on_event deprecation 解消",
+      "StaticPool でテスト用インメモリDB共有"
+    ]
+  }
+}

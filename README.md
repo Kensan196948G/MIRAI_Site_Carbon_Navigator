@@ -2,11 +2,11 @@
 
 ## 🎯 プロジェクト概要
 
-**MIRAI Site Carbon Navigator** は、工事別のCO2排出量を自動算定し、削減施策まで提示する脱炭素支援システムです。
+**MIRAI Site Carbon Navigator** は、建設現場のCO2排出量を自動算定し、削減施策まで提示する脱炭素支援システムです。
 
-船舶、建機、燃料、材料、輸送、電力のデータを集め、SBTiやSDGsの取り組みを現場改善と発注者提案へ接続します。
+船舶・建機・燃料・材料・輸送・電力のデータを集め、SBTiやSDGsの取り組みを現場改善と発注者提案へ接続します。
 
-## 🌱 全体像
+## 🌱 システム全体像
 
 ```mermaid
 flowchart TB
@@ -16,54 +16,147 @@ flowchart TB
   Power["電力"] --> Calc
   Machine["船舶・建機稼働"] --> Calc
   Calc --> Dashboard["工事別ダッシュボード"]
-  Calc --> Report["発注者・社内レポート"]
+  Calc --> Report["Excel月次レポート"]
   Calc --> Navi["削減ナビ"]
   Navi --> Action["現場改善アクション"]
 ```
 
-## 🧩 MVPスコープ
+## 🏗️ アーキテクチャ
 
-| 項目 | 内容 |
+```
+app/
+├── main.py              # FastAPI エントリポイント
+├── database.py          # SQLite / SQLAlchemy 設定
+├── models.py            # ORM モデル (4テーブル)
+├── schemas.py           # Pydantic v2 スキーマ
+├── crud.py              # DB 操作
+├── routers/
+│   ├── projects.py      # 工事管理 API
+│   ├── factors.py       # 排出係数 API
+│   ├── activities.py    # 活動量 API
+│   ├── emissions.py     # CO2算定 API
+│   └── reports.py       # レポート出力 API
+└── services/
+    ├── calculator.py    # CO2算定エンジン
+    ├── reduction.py     # 削減ナビロジック
+    └── reporter.py      # Excel レポート生成
+frontend/
+├── index.html           # Bootstrap 5 SPA
+└── static/
+    ├── css/style.css
+    └── js/app.js
+tests/                   # pytest (59件)
+```
+
+## 🚀 クイックスタート
+
+### ローカル起動
+
+```bash
+# 依存パッケージインストール
+pip install -r requirements.txt
+
+# 初期排出係数データ投入
+python seed_data.py
+
+# サーバー起動
+uvicorn app.main:app --reload --port 8000
+```
+
+ブラウザで `http://localhost:8000` を開くとダッシュボードが表示されます。
+API ドキュメントは `http://localhost:8000/docs` で確認できます。
+
+### Docker 起動
+
+```bash
+docker-compose up --build
+# → http://localhost:8000
+```
+
+## 📊 機能一覧
+
+| ID | 機能 | 状態 |
+|---|---|---|
+| F-01 | 工事登録 | ✅ 実装済み |
+| F-02 | 活動量登録 | ✅ 実装済み |
+| F-03 | 排出係数管理 | ✅ 実装済み |
+| F-04 | CO2算定 | ✅ 実装済み |
+| F-05 | 月次レポート (Excel) | ✅ 実装済み |
+| F-06 | 削減ナビ | ✅ 実装済み |
+| F-07 | 発注者向け出力 | 🔄 次フェーズ |
+
+## 🧮 算定式
+
+```
+CO2排出量 (kg) = 活動量 × 排出係数
+```
+
+| カテゴリ | 品目例 | 排出係数 |
+|---|---|---|
+| fuel (燃料) | 軽油 | 2.58 kg-CO2/L |
+| fuel (燃料) | A重油 | 2.71 kg-CO2/L |
+| power (電力) | 電力 | 0.434 kg-CO2/kWh |
+| material (材料) | 鋼材 | 2,000 kg-CO2/t |
+| transport (輸送) | 一般輸送 | 0.172 kg-CO2/t-km |
+
+> 出典: 環境省 排出係数
+
+## 🔐 ロール設計
+
+| ロール | 権限 |
 |---|---|
-| 対象 | 港湾工事1件、陸上工事1件 |
-| データ | 燃料、主要材料、輸送距離、現場電力 |
-| 出力 | 工事別CO2、月次推移、削減候補 |
-| 方式 | Excel/CSV取込 + Web/BI画面 |
-| レビュー | 環境担当・現場所長による月次確認 |
+| CarbonAdmin | 係数・マスタ・全工事管理 |
+| EnvironmentReviewer | 承認・レポート確認 |
+| SiteInput | 担当工事の活動量登録 |
+| Viewer | 閲覧のみ |
 
-## 👥 役割分担
+## 🧪 テスト
 
-| 担当 | 役割 |
-|---|---|
-| PM | 算定ルール、データ設計、全体設計 |
-| ノーコード担当 | 入力フォーム、月次確認画面 |
-| 元システム管理者 | CSV収集、ファイル置場、権限 |
-| プログラミング担当 | 排出係数マスタ、算定ロジック |
-| 部長 | 環境部門・現場部門との調整 |
+```bash
+pip install pytest httpx
+pytest tests/ -v
+# → 59 passed
+```
 
-## 🗺 ロードマップ
+## 📋 API エンドポイント
+
+| Method | Path | 説明 |
+|---|---|---|
+| POST | /api/projects | 工事登録 |
+| GET | /api/projects | 工事一覧 |
+| POST | /api/activities | 活動量登録 |
+| POST | /api/activities/bulk | 一括登録 |
+| PUT | /api/activities/{id}/approve | 活動量承認 |
+| POST | /api/factors | 排出係数登録 |
+| POST | /api/emissions/calculate | CO2算定実行 |
+| GET | /api/emissions/summary | カテゴリ別集計 |
+| GET | /api/emissions/reduction/{project}/{month} | 削減ナビ |
+| GET | /api/reports/monthly/{project}/{month} | Excel レポート |
+
+## 🗺️ ロードマップ
 
 ```mermaid
 gantt
   title MIRAI Site Carbon Navigator Roadmap
   dateFormat YYYY-MM-DD
-  section Phase 1
-  算定範囲定義             :a1, 2026-06-01, 14d
-  排出係数マスタ整備       :a2, after a1, 14d
-  section Phase 2
-  取込テンプレート作成     :b1, after a2, 14d
-  CO2算定MVP              :b2, after b1, 21d
-  section Phase 3
-  2現場PoC                :c1, after b2, 30d
-  削減ナビ追加             :c2, after c1, 21d
+  section Phase 1 (完了)
+  算定範囲定義             :done, a1, 2026-06-01, 14d
+  排出係数マスタ整備       :done, a2, after a1, 7d
+  section Phase 2 (完了)
+  CO2算定MVP              :done, b1, 2026-06-17, 1d
+  section Phase 3 (次フェーズ)
+  2現場PoC                :c1, 2026-07-01, 30d
+  削減ナビ強化             :c2, after c1, 21d
+  発注者向け出力           :c3, after c2, 14d
 ```
 
-## ✅ 成功指標
+## ✅ 受入条件確認
 
-- CO2算定に必要な月次集計時間を50%削減
-- 工事別CO2を月次で可視化
-- 削減施策を現場単位で3件以上提示
-- 発注者向け環境提案資料に転用可能
+1. ✅ 2現場分の月次データを登録できる
+2. ✅ 工事別・カテゴリ別CO2が表示される
+3. ✅ 排出係数を変更した場合、再計算結果を確認できる
+4. ✅ 月次レポートをExcelで出力できる
+5. ✅ 算定根拠を追跡できる（活動量→係数→算定結果の連鎖）
 
 ## 📄 関連ドキュメント
 

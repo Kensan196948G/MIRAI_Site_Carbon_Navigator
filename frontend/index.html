@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MIRAI Site Carbon Navigator</title>
+
+  <!-- Bootstrap 5 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+        crossorigin="anonymous">
+
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- ===== Navigation ===== -->
+<nav class="navbar navbar-expand-lg navbar-dark" role="navigation" aria-label="メインナビゲーション">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="#">
+      <span class="brand-icon">🌿</span>MIRAI Site Carbon Navigator
+    </a>
+    <button class="navbar-toggler" type="button"
+            data-bs-toggle="collapse" data-bs-target="#mainNav"
+            aria-controls="mainNav" aria-expanded="false" aria-label="メニュー切替">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto gap-1">
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="projects" aria-label="工事一覧">
+            <i class="bi bi-building me-1" aria-hidden="true"></i>工事一覧
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="activities" aria-label="活動量登録">
+            <i class="bi bi-clipboard-data me-1" aria-hidden="true"></i>活動量登録
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="calculation" aria-label="CO2算定">
+            <i class="bi bi-calculator me-1" aria-hidden="true"></i>CO2算定
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="reports" aria-label="レポート">
+            <i class="bi bi-file-earmark-bar-graph me-1" aria-hidden="true"></i>レポート
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- ===== Main ===== -->
+<main class="container-fluid px-4 py-4" id="mainContent">
+
+  <!-- ========================================
+       Section 1: 工事一覧
+       ======================================== -->
+  <section id="section-projects" class="page-section" aria-labelledby="projects-heading">
+    <div class="page-header d-flex justify-content-between align-items-center">
+      <div>
+        <h2 id="projects-heading"><i class="bi bi-building me-2" aria-hidden="true"></i>工事一覧</h2>
+        <p>登録済みの工事を管理します。行をクリックすると各ページで対象工事として使用されます。</p>
+      </div>
+      <button class="btn btn-primary" onclick="openNewProjectModal()" type="button">
+        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>新規登録
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0" aria-label="工事一覧テーブル">
+            <thead>
+              <tr>
+                <th scope="col">工事名</th>
+                <th scope="col">支店</th>
+                <th scope="col">工種</th>
+                <th scope="col">開始日</th>
+                <th scope="col">終了日</th>
+                <th scope="col" style="width:90px">選択</th>
+              </tr>
+            </thead>
+            <tbody id="projectsTableBody">
+              <tr>
+                <td colspan="6" class="text-center py-4 text-muted">
+                  <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>読み込み中...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================
+       Section 2: 活動量登録
+       ======================================== -->
+  <section id="section-activities" class="page-section" aria-labelledby="activities-heading">
+    <div class="page-header">
+      <h2 id="activities-heading"><i class="bi bi-clipboard-data me-2" aria-hidden="true"></i>活動量登録</h2>
+      <p>工事・対象月を選択して活動量データを登録・確認します。</p>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar" role="search" aria-label="活動量フィルター">
+      <div class="form-group">
+        <label for="actProjectSelect" class="form-label">工事</label>
+        <select id="actProjectSelect" class="form-select project-select"
+                onchange="onActivityFilterChange()" aria-label="工事を選択">
+          <option value="">-- 工事を選択 --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="actMonthPicker" class="form-label">対象月</label>
+        <input type="month" id="actMonthPicker" class="form-control"
+               onchange="onActivityFilterChange()" aria-label="対象月を選択">
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <!-- Entry form -->
+      <div class="col-lg-5">
+        <div class="card">
+          <div class="card-header">
+            <i class="bi bi-plus-circle me-2" aria-hidden="true"></i>活動量を追加
+          </div>
+          <div class="card-body">
+            <form id="activityForm" novalidate aria-label="活動量登録フォーム">
+              <div class="mb-3">
+                <label for="fCategory" class="form-label">カテゴリ <span class="text-danger" aria-hidden="true">*</span></label>
+                <select id="fCategory" class="form-select" required aria-required="true">
+                  <option value="">-- 選択 --</option>
+                  <option value="fuel">🔥 燃料</option>
+                  <option value="power">⚡ 電力</option>
+                  <option value="material">🏗️ 材料</option>
+                  <option value="transport">🚚 輸送</option>
+                </select>
+                <div class="invalid-feedback">カテゴリを選択してください</div>
+              </div>
+
+              <div class="mb-3">
+                <label for="fItemName" class="form-label">品目 <span class="text-danger" aria-hidden="true">*</span></label>
+                <input type="text" id="fItemName" class="form-control"
+                       placeholder="例: 軽油、電力（買電）" required aria-required="true" maxlength="200">
+                <div class="invalid-feedback">品目を入力してください</div>
+              </div>
+
+              <div class="row g-2 mb-3">
+                <div class="col-7">
+                  <label for="fQuantity" class="form-label">数量 <span class="text-danger" aria-hidden="true">*</span></label>
+                  <input type="number" id="fQuantity" class="form-control"
+                         placeholder="0.000" min="0" step="any" required aria-required="true">
+                  <div class="invalid-feedback">数量を入力してください</div>
+                </div>
+                <div class="col-5">
+                  <label for="fUnit" class="form-label">単位 <span class="text-danger" aria-hidden="true">*</span></label>
+                  <input type="text" id="fUnit" class="form-control"
+                         placeholder="L / kWh / t" required aria-required="true" maxlength="20">
+                  <div class="invalid-feedback">単位を入力してください</div>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="fSourceFile" class="form-label">元ファイル</label>
+                <input type="text" id="fSourceFile" class="form-control"
+                       placeholder="伝票番号・ファイル名など（任意）" maxlength="300">
+              </div>
+
+              <button type="button" class="btn btn-primary w-100" onclick="submitActivityForm()">
+                <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>登録する
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity list -->
+      <div class="col-lg-7">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-list-ul me-2" aria-hidden="true"></i>登録済み活動量</span>
+            <button class="btn btn-sm btn-success" onclick="bulkApprove()" type="button"
+                    aria-label="すべての活動量を一括承認">
+              <i class="bi bi-check-all me-1" aria-hidden="true"></i>一括承認
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover table-sm mb-0" aria-label="活動量一覧テーブル">
+                <thead>
+                  <tr>
+                    <th scope="col">カテゴリ</th>
+                    <th scope="col">品目</th>
+                    <th scope="col" class="text-end">数量</th>
+                    <th scope="col">単位</th>
+                    <th scope="col">元ファイル</th>
+                    <th scope="col" class="text-center">承認</th>
+                    <th scope="col" class="text-center">状態</th>
+                  </tr>
+                </thead>
+                <tbody id="activitiesTableBody">
+                  <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                      工事と対象月を選択してください
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================
+       Section 3: CO2算定
+       ======================================== -->
+  <section id="section-calculation" class="page-section" aria-labelledby="calculation-heading">
+    <div class="page-header">
+      <h2 id="calculation-heading"><i class="bi bi-calculator me-2" aria-hidden="true"></i>CO2算定</h2>
+      <p>工事・対象月を選択して CO2 排出量を算定します。</p>
+    </div>
+
+    <!-- Filter + run -->
+    <div class="filter-bar" role="search" aria-label="算定フィルター">
+      <div class="form-group">
+        <label for="calcProjectSelect" class="form-label">工事</label>
+        <select id="calcProjectSelect" class="form-select project-select" aria-label="工事を選択">
+          <option value="">-- 工事を選択 --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="calcMonthPicker" class="form-label">対象月</label>
+        <input type="month" id="calcMonthPicker" class="form-control" aria-label="対象月を選択">
+      </div>
+      <div class="form-group d-flex align-items-end">
+        <button class="btn btn-primary" onclick="executeCalculation()" type="button">
+          <i class="bi bi-lightning-charge me-1" aria-hidden="true"></i>算定実行
+        </button>
+      </div>
+    </div>
+
+    <!-- Results (hidden until calculation runs) -->
+    <div id="calcResultsSection" style="display:none;">
+
+      <!-- Summary stat cards -->
+      <div class="row g-3 mb-4" aria-label="CO2排出量サマリー">
+        <div class="col-6 col-md-4 col-xl-2">
+          <div class="stat-card total">
+            <div class="stat-value" id="statTotal">-</div>
+            <div class="stat-unit">t-CO2</div>
+            <div class="stat-label">🌍 合計</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+          <div class="stat-card fuel">
+            <div class="stat-value" id="statFuel">-</div>
+            <div class="stat-unit">t-CO2</div>
+            <div class="stat-label">🔥 燃料</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+          <div class="stat-card power">
+            <div class="stat-value" id="statPower">-</div>
+            <div class="stat-unit">t-CO2</div>
+            <div class="stat-label">⚡ 電力</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+          <div class="stat-card material">
+            <div class="stat-value" id="statMaterial">-</div>
+            <div class="stat-unit">t-CO2</div>
+            <div class="stat-label">🏗️ 材料</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-xl-2">
+          <div class="stat-card transport">
+            <div class="stat-value" id="statTransport">-</div>
+            <div class="stat-unit">t-CO2</div>
+            <div class="stat-label">🚚 輸送</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4 mb-4">
+        <!-- Detail table -->
+        <div class="col-lg-8">
+          <div class="card h-100">
+            <div class="card-header">
+              <i class="bi bi-table me-2" aria-hidden="true"></i>算定明細
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0" aria-label="CO2算定明細テーブル">
+                  <thead>
+                    <tr>
+                      <th scope="col">カテゴリ</th>
+                      <th scope="col">品目</th>
+                      <th scope="col" class="text-end">活動量</th>
+                      <th scope="col">単位</th>
+                      <th scope="col" class="text-end">排出係数</th>
+                      <th scope="col" class="text-end">CO2(kg)</th>
+                      <th scope="col" class="text-end">CO2(t)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="calcTableBody">
+                    <tr>
+                      <td colspan="7" class="text-center text-muted py-3">算定を実行してください</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="col-lg-4">
+          <div class="card h-100">
+            <div class="card-header">
+              <i class="bi bi-pie-chart me-2" aria-hidden="true"></i>カテゴリ別排出割合
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+              <div class="chart-container w-100">
+                <canvas id="emissionChart" aria-label="CO2排出量カテゴリ別円グラフ" role="img"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reduction suggestions -->
+      <div class="card">
+        <div class="card-header">
+          <i class="bi bi-lightbulb me-2" aria-hidden="true"></i>削減ナビ — 推奨アクション
+        </div>
+        <div class="card-body">
+          <div id="reductionList">
+            <p class="text-muted small mb-0">算定実行後に削減提案が表示されます。</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /calcResultsSection -->
+  </section>
+
+  <!-- ========================================
+       Section 4: レポート
+       ======================================== -->
+  <section id="section-reports" class="page-section" aria-labelledby="reports-heading">
+    <div class="page-header">
+      <h2 id="reports-heading"><i class="bi bi-file-earmark-bar-graph me-2" aria-hidden="true"></i>レポート</h2>
+      <p>月次 CO2 排出レポートのダウンロードと推移グラフを確認できます。</p>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar" role="search" aria-label="レポートフィルター">
+      <div class="form-group">
+        <label for="rptProjectSelect" class="form-label">工事</label>
+        <select id="rptProjectSelect" class="form-select project-select"
+                onchange="onReportFilterChange()" aria-label="工事を選択">
+          <option value="">-- 工事を選択 --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="rptMonthPicker" class="form-label">対象月</label>
+        <input type="month" id="rptMonthPicker" class="form-control" aria-label="対象月を選択">
+      </div>
+      <div class="form-group d-flex align-items-end">
+        <button class="btn btn-success" onclick="downloadCurrentReport()" type="button">
+          <i class="bi bi-file-earmark-excel me-1" aria-hidden="true"></i>Excel ダウンロード
+        </button>
+      </div>
+    </div>
+
+    <!-- Monthly trend chart -->
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-graph-up me-2" aria-hidden="true"></i>月次 CO2 排出推移</span>
+        <button class="btn btn-sm btn-outline-primary" onclick="loadMonthlyTrend()" type="button"
+                aria-label="トレンドグラフを更新">
+          <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>更新
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="chart-container">
+          <canvas id="trendChart" aria-label="月次CO2排出推移折れ線グラフ" role="img"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main><!-- /main -->
+
+<!-- ===== New Project Modal ===== -->
+<div class="modal fade" id="projectModal" tabindex="-1"
+     aria-labelledby="projectModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="projectModalLabel">
+          <i class="bi bi-plus-circle me-2" aria-hidden="true"></i>工事の新規登録
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <form id="projectForm" novalidate aria-label="工事登録フォーム">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label for="fProjectId" class="form-label">工事ID <span class="text-danger" aria-hidden="true">*</span></label>
+              <input type="text" id="fProjectId" class="form-control"
+                     placeholder="PROJ-001" required aria-required="true" maxlength="50">
+              <div class="invalid-feedback">工事IDを入力してください</div>
+            </div>
+            <div class="col-md-8">
+              <label for="fProjectName" class="form-label">工事名 <span class="text-danger" aria-hidden="true">*</span></label>
+              <input type="text" id="fProjectName" class="form-control"
+                     placeholder="○○道路改良工事" required aria-required="true" maxlength="200">
+              <div class="invalid-feedback">工事名を入力してください</div>
+            </div>
+            <div class="col-md-6">
+              <label for="fBranch" class="form-label">支店</label>
+              <input type="text" id="fBranch" class="form-control"
+                     placeholder="東京支店" maxlength="100">
+            </div>
+            <div class="col-md-6">
+              <label for="fConstructionType" class="form-label">工種</label>
+              <input type="text" id="fConstructionType" class="form-control"
+                     placeholder="道路工事、建築工事 など" maxlength="100">
+            </div>
+            <div class="col-md-6">
+              <label for="fStartDate" class="form-label">開始日</label>
+              <input type="date" id="fStartDate" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label for="fEndDate" class="form-label">終了日</label>
+              <input type="date" id="fEndDate" class="form-control">
+            </div>
+            <div class="col-12">
+              <label for="fNotes" class="form-label">備考</label>
+              <textarea id="fNotes" class="form-control" rows="2"
+                        placeholder="補足事項など" maxlength="500"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitProjectForm()">
+          <i class="bi bi-save me-1" aria-hidden="true"></i>登録する
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Loading Overlay ===== -->
+<div class="loading-overlay" id="loadingOverlay" role="status" aria-label="処理中">
+  <div class="loading-spinner-wrapper">
+    <div class="spinner-border" aria-hidden="true"></div>
+    <div class="mt-2 fw-semibold">処理中...</div>
+  </div>
+</div>
+
+<!-- ===== Toast container ===== -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3"
+     id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+<!-- Bootstrap 5 JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmrIi9GsyAlFMFuCfP/VCE2xpLm"
+        crossorigin="anonymous"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"
+        integrity="sha384-7RV5jdqBenBkh+YYBoPFVtLMx7WXCO1zNvuVhUCOF7ItM5vHSmPcfynASH4r7xt"
+        crossorigin="anonymous"></script>
+
+<!-- Application JS -->
+<script src="/static/js/app.js"></script>
+</body>
+</html>
