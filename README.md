@@ -1,5 +1,10 @@
 # MIRAI Site Carbon Navigator
 
+![CI](https://github.com/Kensan196948G/MIRAI_Site_Carbon_Navigator/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![Tests](https://img.shields.io/badge/tests-59%20passed-brightgreen)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 ## 🎯 プロジェクト概要
 
 **MIRAI Site Carbon Navigator** は、建設現場のCO2排出量を自動算定し、削減施策まで提示する脱炭素支援システムです。
