@@ -15,7 +15,7 @@ from starlette.testclient import TestClient
 
 from app.main import app as fastapi_app
 from app.database import Base, get_db
-from app.models import User
+from app.models import Branch, User
 from app.security import hash_password
 import app.models  # noqa: F401 — ensures all ORM models are registered with Base.metadata
 
@@ -45,11 +45,11 @@ def _make_client(role: str):
 
     # Seed default users so role-protected endpoints can be exercised.
     session = TestingSessionLocal()
-    for username, display_name, user_role in [
-        ("admin", "管理者", "admin"),
-        ("reviewer", "レビュアー", "reviewer"),
-        ("site", "現場担当", "site"),
-        ("viewer", "閲覧者", "viewer"),
+    for username, display_name, user_role, branch in [
+        ("admin", "管理者", "admin", None),
+        ("reviewer", "レビュアー", "reviewer", None),
+        ("site", "現場担当", "site", "東京支店"),
+        ("viewer", "閲覧者", "viewer", None),
     ]:
         session.add(
             User(
@@ -58,10 +58,19 @@ def _make_client(role: str):
                 display_name=display_name,
                 password_hash=hash_password(f"{username}123"),
                 role=user_role,
+                branch=branch,
+                email=f"{username}@example.local",
                 is_active=True,
                 created_at=datetime.datetime.now(datetime.timezone.utc),
             )
         )
+    session.commit()
+    for name in ["東京支店", "大阪支店", "東北支店"]:
+        session.add(Branch(
+            branch_id=f"branch-{name}",
+            name=name,
+            created_at=datetime.datetime.now(datetime.timezone.utc),
+        ))
     session.commit()
     session.close()
 
@@ -120,11 +129,11 @@ def client_pair():
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
     session = TestingSessionLocal()
-    for username, display_name, user_role in [
-        ("admin", "管理者", "admin"),
-        ("reviewer", "レビュアー", "reviewer"),
-        ("site", "現場担当", "site"),
-        ("viewer", "閲覧者", "viewer"),
+    for username, display_name, user_role, branch in [
+        ("admin", "管理者", "admin", None),
+        ("reviewer", "レビュアー", "reviewer", None),
+        ("site", "現場担当", "site", "東京支店"),
+        ("viewer", "閲覧者", "viewer", None),
     ]:
         session.add(
             User(
@@ -133,10 +142,19 @@ def client_pair():
                 display_name=display_name,
                 password_hash=hash_password(f"{username}123"),
                 role=user_role,
+                branch=branch,
+                email=f"{username}@example.local",
                 is_active=True,
                 created_at=datetime.datetime.now(datetime.timezone.utc),
             )
         )
+    session.commit()
+    for name in ["東京支店", "大阪支店", "東北支店"]:
+        session.add(Branch(
+            branch_id=f"branch-{name}",
+            name=name,
+            created_at=datetime.datetime.now(datetime.timezone.utc),
+        ))
     session.commit()
     session.close()
 

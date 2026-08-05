@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from . import models, schemas
 from .security import hash_password
+from .services.notify import deliver_external
 
 
 def _new_id() -> str:
@@ -195,6 +196,7 @@ def get_latest_factor(
     item_name: str,
     unit: str,
     effective_on: Optional[date] = None,
+    supplier: Optional[str] = None,
 ) -> Optional[models.EmissionFactor]:
     """Return the newest factor whose effective_from <= effective_on (or today)."""
     query = (
@@ -207,7 +209,24 @@ def get_latest_factor(
     )
     if effective_on is not None:
         query = query.filter(models.EmissionFactor.effective_from <= effective_on)
-    return query.order_by(models.EmissionFactor.effective_from.desc()).first()
+    if supplier:
+        supplier_match = (
+            query.filter(models.EmissionFactor.supplier == supplier)
+            .order_by(models.EmissionFactor.effective_from.desc())
+            .first()
+        )
+        if supplier_match:
+            return supplier_match
+        return (
+            query.filter(models.EmissionFactor.supplier.is_(None))
+            .order_by(models.EmissionFactor.effective_from.desc())
+            .first()
+        )
+    return (
+        query.filter(models.EmissionFactor.supplier.is_(None))
+        .order_by(models.EmissionFactor.effective_from.desc())
+        .first()
+    )
 
 
 def list_factor_versions(
@@ -598,6 +617,12 @@ def add_notification(
     )
     db.add(notification)
     db.commit()
+    deliver_external(
+        db,
+        message=message,
+        recipient_role=recipient_role,
+        recipient_username=recipient_username,
+    )
     return notification
 
 
@@ -795,6 +820,288 @@ def delete_sbti_target(db: Session, target_id: str, actor: str) -> bool:
     db.commit()
     add_audit_log(db, actor, "delete", "sbti_target", target_id)
     return True
+
+
+# ---------------------------------------------------------------------------
+# Monthly close (locking)
+# ---------------------------------------------------------------------------
+
+def is_month_closed(db: Session, project_id: str, target_month: str) -> bool:
+    return (
+        db.query(models.MonthlyClose)
+        .filter(
+            models.MonthlyClose.project_id == project_id,
+            models.MonthlyClose.target_month == target_month,
+        )
+        .first()
+        is not None
+    )
+
+
+def create_monthly_close(
+    db: Session, body: schemas.MonthlyCloseCreate, actor: str
+) -> models.MonthlyClose:
+    if is_month_closed(db, body.project_id, body.target_month):
+        raise ValueError("Month already closed")
+    close = models.MonthlyClose(
+        close_id=_new_id(),
+        project_id=body.project_id,
+        target_month=body.target_month,
+        note=body.note,
+        closed_by=actor,
+        closed_at=utcnow(),
+    )
+    db.add(close)
+    db.commit()
+    db.refresh(close)
+    add_audit_log(db, actor, "create", "monthly_close", close.close_id, f"{body.project_id}/{body.target_month}")
+    project = get_project(db, body.project_id)
+    add_notification(
+        db,
+        message=f"月次締めが完了しました: {project.name if project else body.project_id} / {body.target_month}",
+        recipient_role="site",
+    )
+    return close
+
+
+def list_monthly_closes(
+    db: Session, project_id: Optional[str] = None, target_month: Optional[str] = None
+) -> list[models.MonthlyClose]:
+    query = db.query(models.MonthlyClose)
+    if project_id:
+        query = query.filter(models.MonthlyClose.project_id == project_id)
+    if target_month:
+        query = query.filter(models.MonthlyClose.target_month == target_month)
+    return query.order_by(models.MonthlyClose.closed_at.desc()).all()
+
+
+def delete_monthly_close(db: Session, close_id: str, actor: str) -> bool:
+    close = db.query(models.MonthlyClose).filter(models.MonthlyClose.close_id == close_id).first()
+    if not close:
+        return False
+    db.delete(close)
+    db.commit()
+    add_audit_log(db, actor, "delete", "monthly_close", close_id)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Activity comments
+# ---------------------------------------------------------------------------
+
+def add_activity_comment(
+    db: Session, activity_id: str, content: str, actor: str
+) -> models.ActivityComment:
+    comment = models.ActivityComment(
+        comment_id=_new_id(),
+        activity_id=activity_id,
+        author=actor,
+        content=content,
+        created_at=utcnow(),
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    activity = get_activity(db, activity_id)
+    if activity:
+        recipient_role = "reviewer" if actor == activity.created_by else "site"
+        add_notification(
+            db,
+            message=f"活動量にコメント: {activity.item_name} / {comment.content[:60]}",
+            recipient_role=recipient_role,
+        )
+    return comment
+
+
+def list_activity_comments(db: Session, activity_id: str) -> list[models.ActivityComment]:
+    return (
+        db.query(models.ActivityComment)
+        .filter(models.ActivityComment.activity_id == activity_id)
+        .order_by(models.ActivityComment.created_at.asc())
+        .all()
+    )
+
+
+def delete_activity_comment(db: Session, comment_id: str, actor: str) -> bool:
+    comment = (
+        db.query(models.ActivityComment)
+        .filter(models.ActivityComment.comment_id == comment_id)
+        .first()
+    )
+    if not comment:
+        return False
+    db.delete(comment)
+    db.commit()
+    add_audit_log(db, actor, "delete", "activity_comment", comment_id)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Branches
+# ---------------------------------------------------------------------------
+
+def create_branch(db: Session, name: str, actor: str) -> models.Branch:
+    existing = (
+        db.query(models.Branch).filter(models.Branch.name == name).first()
+    )
+    if existing:
+        raise ValueError("Branch already exists")
+    branch = models.Branch(
+        branch_id=_new_id(),
+        name=name,
+        created_at=utcnow(),
+    )
+    db.add(branch)
+    db.commit()
+    db.refresh(branch)
+    add_audit_log(db, actor, "create", "branch", branch.branch_id, name)
+    return branch
+
+
+def list_branches(db: Session) -> list[models.Branch]:
+    return db.query(models.Branch).order_by(models.Branch.name).all()
+
+
+def delete_branch(db: Session, branch_id: str, actor: str) -> bool:
+    branch = db.query(models.Branch).filter(models.Branch.branch_id == branch_id).first()
+    if not branch:
+        return False
+    db.delete(branch)
+    db.commit()
+    add_audit_log(db, actor, "delete", "branch", branch_id)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# User-project access (client portal)
+# ---------------------------------------------------------------------------
+
+def set_user_project_access(
+    db: Session, user_id: str, project_ids: list[str], actor: str
+) -> list[models.UserProjectAccess]:
+    db.query(models.UserProjectAccess).filter(
+        models.UserProjectAccess.user_id == user_id
+    ).delete()
+    created = []
+    for pid in project_ids:
+        access = models.UserProjectAccess(
+            access_id=_new_id(),
+            user_id=user_id,
+            project_id=pid,
+            created_by=actor,
+            created_at=utcnow(),
+        )
+        db.add(access)
+        created.append(access)
+    db.commit()
+    add_audit_log(db, actor, "update", "user_project_access", user_id, f"{len(project_ids)} projects")
+    return created
+
+
+def accessible_project_ids(db: Session, user: models.User) -> list[str]:
+    if user.role == "client":
+        return [
+            a.project_id
+            for a in db.query(models.UserProjectAccess)
+            .filter(models.UserProjectAccess.user_id == user.user_id)
+            .all()
+        ]
+    return [p.project_id for p in list_projects(db)]
+
+
+def has_project_access(db: Session, user: models.User, project_id: str) -> bool:
+    if user.role != "client":
+        return True
+    return (
+        db.query(models.UserProjectAccess)
+        .filter(
+            models.UserProjectAccess.user_id == user.user_id,
+            models.UserProjectAccess.project_id == project_id,
+        )
+        .first()
+        is not None
+    )
+
+
+def list_projects_for_user(db: Session, user: models.User) -> list[models.Project]:
+    projects = list_projects(db)
+    if user.role == "site" and user.branch:
+        projects = [p for p in projects if p.branch == user.branch]
+    if user.role == "client":
+        allowed = set(accessible_project_ids(db, user))
+        projects = [p for p in projects if p.project_id in allowed]
+    return projects
+
+
+# ---------------------------------------------------------------------------
+# Copy previous month & reminders
+# ---------------------------------------------------------------------------
+
+def copy_previous_month(
+    db: Session, project_id: str, from_month: str, to_month: str, actor: str
+) -> dict:
+    sources = list_activity_data(db, project_id=project_id, target_month=from_month)
+    copied = 0
+    skipped = 0
+    errors: list[str] = []
+    existing_keys = {
+        (a.category, a.item_name, a.unit)
+        for a in list_activity_data(db, project_id=project_id, target_month=to_month)
+    }
+    for src in sources:
+        key = (src.category, src.item_name, src.unit)
+        if key in existing_keys:
+            skipped += 1
+            continue
+        try:
+            create_activity_data(
+                db,
+                schemas.ActivityDataCreate(
+                    project_id=project_id,
+                    target_month=to_month,
+                    category=src.category,
+                    item_name=src.item_name,
+                    quantity=src.quantity,
+                    unit=src.unit,
+                    source_file=f"前月コピー: {from_month}",
+                    note=src.note,
+                    supplier=src.supplier,
+                    created_by=actor,
+                ),
+                actor=actor,
+            )
+            copied += 1
+        except ValueError as e:
+            errors.append(str(e))
+            skipped += 1
+    return {"copied": copied, "skipped": skipped, "errors": errors}
+
+
+def get_monthly_reminders(db: Session, target_month: str) -> list[dict]:
+    reminders = []
+    for project in list_projects(db):
+        activities = list_activity_data(
+            db, project_id=project.project_id, target_month=target_month
+        )
+        if not activities:
+            reminders.append({
+                "project_id": project.project_id,
+                "project_name": project.name,
+                "branch": project.branch,
+                "status": "no_data",
+                "activity_count": 0,
+            })
+        else:
+            unapproved = [a for a in activities if not a.approved]
+            if unapproved:
+                reminders.append({
+                    "project_id": project.project_id,
+                    "project_name": project.name,
+                    "branch": project.branch,
+                    "status": "unapproved",
+                    "activity_count": len(unapproved),
+                })
+    return reminders
 
 
 def list_reduction_actions(

@@ -399,3 +399,142 @@ def generate_monthly_report_pdf(project, month: str, results_summary: list[dict]
     doc.build(elements)
     buffer.seek(0)
     return buffer.getvalue()
+
+
+def generate_project_card_pdf(
+    project,
+    monthly_trend: list[dict],
+    category_totals: dict[str, float],
+    reduction_actions: list[dict],
+    feedbacks: list[dict],
+) -> bytes:
+    """Generate a project dossier PDF (工事カルテ) summarizing the whole project."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=18 * mm,
+        leftMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+        title=f"工事カルテ {getattr(project, 'name', '')}",
+        author="MIRAI Site Carbon Navigator",
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "TitleJP",
+        parent=styles["Title"],
+        fontName=_JAPANESE_FONT,
+        fontSize=16,
+        leading=22,
+        textColor=colors.HexColor("#1f5e33"),
+        spaceAfter=6,
+    )
+    h2_style = ParagraphStyle(
+        "H2JP",
+        parent=styles["Heading2"],
+        fontName=_JAPANESE_FONT,
+        fontSize=12,
+        leading=16,
+        textColor=colors.HexColor("#2d7d46"),
+        spaceBefore=10,
+        spaceAfter=6,
+    )
+    body_style = ParagraphStyle(
+        "BodyJP",
+        parent=styles["BodyText"],
+        fontName=_JAPANESE_FONT,
+        fontSize=9,
+        leading=13,
+    )
+
+    elements = []
+    elements.append(Paragraph("工事カルテ（CO2排出サマリー）", title_style))
+    elements.append(Paragraph(f"作成日: {datetime.date.today().isoformat()}", body_style))
+    elements.append(Spacer(1, 4 * mm))
+
+    info = Table(
+        [
+            ["プロジェクト名", getattr(project, "name", "")],
+            ["支店", getattr(project, "branch", "")],
+            ["工種", getattr(project, "work_type", "")],
+            ["期間", f"{getattr(project, 'start_date', '')} 〜 {getattr(project, 'end_date', '')}"],
+        ],
+        colWidths=[35 * mm, 139 * mm],
+    )
+    info.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), _JAPANESE_FONT),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#e8f5ec")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#c8e6d0")),
+    ]))
+    elements.append(info)
+    elements.append(Spacer(1, 4 * mm))
+
+    total_kg = sum(category_totals.values())
+    elements.append(Paragraph(f"1. 排出量サマリー（全期間合計 {total_kg / 1000:,.3f} t-CO2）", h2_style))
+    cat_rows = [["カテゴリ", "CO2排出量 (kg-CO2)", "CO2排出量 (t-CO2)", "割合"]]
+    for cat, co2 in sorted(category_totals.items(), key=lambda x: -x[1]):
+        ratio = f"{co2 / total_kg * 100:.1f}%" if total_kg else "-"
+        cat_rows.append([cat, f"{co2:,.3f}", f"{co2 / 1000:,.4f}", ratio])
+    cat_table = Table(cat_rows, colWidths=[55 * mm, 45 * mm, 45 * mm, 29 * mm])
+    cat_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), _JAPANESE_FONT),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E75B6")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+    ]))
+    elements.append(cat_table)
+
+    elements.append(Paragraph("2. 月次排出推移", h2_style))
+    trend_rows = [["対象月", "CO2排出量 (kg-CO2)", "CO2排出量 (t-CO2)"]]
+    for item in monthly_trend:
+        trend_rows.append([
+            item["target_month"],
+            f"{item['total_co2_kg']:,.3f}",
+            f"{item['total_co2_kg'] / 1000:,.4f}",
+        ])
+    trend_table = Table(trend_rows, colWidths=[45 * mm, 65 * mm, 65 * mm])
+    trend_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), _JAPANESE_FONT),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E75B6")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+    ]))
+    elements.append(trend_table)
+
+    if reduction_actions:
+        elements.append(Paragraph("3. 削減アクション", h2_style))
+        status_labels = {"planned": "計画", "implemented": "実施済み", "declined": "見送り"}
+        action_rows = [["対象月", "カテゴリ", "提案", "状態", "想定(kg)", "実績(kg)"]]
+        for a in reduction_actions[:10]:
+            action_rows.append([
+                a["target_month"],
+                a["category"],
+                a["suggestion"],
+                status_labels.get(a["status"], a["status"]),
+                f"{a.get('estimated_reduction_kg') or 0:,.1f}",
+                f"{a.get('actual_reduction_kg') or 0:,.1f}",
+            ])
+        action_table = Table(action_rows, colWidths=[22 * mm, 20 * mm, 60 * mm, 22 * mm, 25 * mm, 25 * mm])
+        action_table.setStyle(TableStyle([
+            ("FONTNAME", (0, 0), (-1, -1), _JAPANESE_FONT),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E75B6")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+        ]))
+        elements.append(action_table)
+
+    if feedbacks:
+        elements.append(Paragraph("4. 現場フィードバック", h2_style))
+        for f in feedbacks[:5]:
+            elements.append(Paragraph(f"・[{f['target_month']}] {f['content']}", body_style))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()

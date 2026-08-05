@@ -22,6 +22,10 @@ def create_activity(
     project = crud.get_project(db, activity.project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if user.role == "site" and user.branch and project.branch != user.branch:
+        raise HTTPException(status_code=403, detail="他支店の工事へは登録できません")
+    if crud.is_month_closed(db, activity.project_id, activity.target_month):
+        raise HTTPException(status_code=400, detail="対象月は締め済みのため登録できません")
     try:
         return crud.create_activity_data(db, activity, actor=user.username)
     except ValueError as e:
@@ -35,6 +39,8 @@ def list_activities(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    if project_id and not crud.has_project_access(db, user, project_id):
+        raise HTTPException(status_code=403, detail="Project access denied")
     return crud.list_activity_data(db, project_id=project_id, target_month=target_month)
 
 
@@ -99,6 +105,10 @@ async def import_activities(
             errors.append(f"Row {idx}: Project {schema.project_id} not found")
             skipped += 1
             continue
+        if crud.is_month_closed(db, schema.project_id, schema.target_month):
+            errors.append(f"Row {idx}: 対象月 {schema.target_month} は締め済み")
+            skipped += 1
+            continue
         try:
             crud.create_activity_data(db, schema, actor=user.username)
             imported += 1
@@ -115,9 +125,12 @@ def approve_activity(
     db: Session = Depends(get_db),
     user=Depends(require_at_least("reviewer")),
 ):
-    activity = crud.approve_activity(db, activity_id, body.approved, user.username)
+    activity = crud.get_activity(db, activity_id)
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
+    if crud.is_month_closed(db, activity.project_id, activity.target_month):
+        raise HTTPException(status_code=400, detail="対象月は締め済みのため承認を変更できません")
+    activity = crud.approve_activity(db, activity_id, body.approved, user.username)
     return activity
 
 
@@ -128,9 +141,12 @@ def update_activity(
     db: Session = Depends(get_db),
     user=Depends(require_at_least("site")),
 ):
-    activity = crud.update_activity(db, activity_id, body, user.username)
-    if not activity:
+    existing = crud.get_activity(db, activity_id)
+    if not existing:
         raise HTTPException(status_code=404, detail="Activity not found")
+    if crud.is_month_closed(db, existing.project_id, existing.target_month):
+        raise HTTPException(status_code=400, detail="対象月は締め済みのため更新できません")
+    activity = crud.update_activity(db, activity_id, body, user.username)
     return activity
 
 
@@ -140,6 +156,11 @@ def delete_activity(
     db: Session = Depends(get_db),
     user=Depends(require_at_least("site")),
 ):
+    existing = crud.get_activity(db, activity_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    if crud.is_month_closed(db, existing.project_id, existing.target_month):
+        raise HTTPException(status_code=400, detail="対象月は締め済みのため削除できません")
     if not crud.delete_activity(db, activity_id, user.username):
         raise HTTPException(status_code=404, detail="Activity not found")
 
@@ -157,6 +178,9 @@ def bulk_create_activities(
         if not project:
             errors.append(f"Row {i}: Project {activity.project_id} not found")
             continue
+        if crud.is_month_closed(db, activity.project_id, activity.target_month):
+            errors.append(f"Row {i}: 対象月 {activity.target_month} は締め済み")
+            continue
         try:
             result = crud.create_activity_data(db, activity, actor=user.username)
             results.append(result)
@@ -165,3 +189,54 @@ def bulk_create_activities(
     if errors and not results:
         raise HTTPException(status_code=400, detail="; ".join(errors))
     return results
+
+
+@router.post("/copy-previous", response_model=schemas.CopyPreviousResult)
+def copy_previous(
+    body: schemas.CopyPreviousRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_at_least("site")),
+):
+    if not crud.get_project(db, body.project_id):
+        raise HTTPException(status_code=404, detail="Project not found")
+    if crud.is_month_closed(db, body.project_id, body.to_month):
+        raise HTTPException(status_code=400, detail="コピー先の対象月は締め済みです")
+    return crud.copy_previous_month(
+        db, body.project_id, body.from_month, body.to_month, user.username
+    )
+
+
+@router.get("/{activity_id}/comments", response_model=list[schemas.ActivityCommentRead])
+def list_comments(
+    activity_id: str,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    activity = crud.get_activity(db, activity_id)
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    return crud.list_activity_comments(db, activity_id)
+
+
+@router.post("/{activity_id}/comments", response_model=schemas.ActivityCommentRead, status_code=201)
+def add_comment(
+    activity_id: str,
+    body: schemas.ActivityCommentCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_at_least("site")),
+):
+    activity = crud.get_activity(db, activity_id)
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    return crud.add_activity_comment(db, activity_id, body.content.strip(), user.username)
+
+
+@router.delete("/{activity_id}/comments/{comment_id}", status_code=204)
+def delete_comment(
+    activity_id: str,
+    comment_id: str,
+    db: Session = Depends(get_db),
+    user=Depends(require_at_least("reviewer")),
+):
+    if not crud.delete_activity_comment(db, comment_id, user.username):
+        raise HTTPException(status_code=404, detail="Comment not found")

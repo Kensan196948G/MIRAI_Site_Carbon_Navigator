@@ -8,6 +8,7 @@ from ..services.reporter import (
     generate_monthly_report_csv,
     generate_monthly_report_excel,
     generate_monthly_report_pdf,
+    generate_project_card_pdf,
 )
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -24,6 +25,8 @@ def download_monthly_report(
     project = crud.get_project(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if not crud.has_project_access(db, user, project_id):
+        raise HTTPException(status_code=403, detail="Project access denied")
 
     results = crud.get_results_by_project(db, project_id=project_id, target_month=target_month)
 
@@ -55,5 +58,52 @@ def download_monthly_report(
     return Response(
         content=content,
         media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/card/{project_id}")
+def download_project_card(
+    project_id: str,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    project = crud.get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not crud.has_project_access(db, user, project_id):
+        raise HTTPException(status_code=403, detail="Project access denied")
+
+    results = crud.get_results_by_project(db, project_id=project_id)
+    category_totals: dict[str, float] = {}
+    for r in results:
+        cat = r.activity.category
+        category_totals[cat] = category_totals.get(cat, 0.0) + r.co2_kg
+
+    trend_rows = [
+        t for t in crud.get_monthly_trend(db, project_id=project_id)
+    ]
+    actions = [
+        {
+            "target_month": a.target_month,
+            "category": a.category,
+            "suggestion": a.suggestion,
+            "status": a.status,
+            "estimated_reduction_kg": a.estimated_reduction_kg,
+            "actual_reduction_kg": a.actual_reduction_kg,
+        }
+        for a in crud.list_reduction_actions(db, project_id=project_id)
+    ]
+    feedbacks = [
+        {"target_month": f.target_month, "content": f.content}
+        for f in crud.list_site_feedbacks(db, project_id=project_id)
+    ]
+    content = generate_project_card_pdf(
+        project, trend_rows, category_totals, actions, feedbacks
+    )
+    filename = f"project_card_{project_id}.pdf"
+    return Response(
+        content=content,
+        media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

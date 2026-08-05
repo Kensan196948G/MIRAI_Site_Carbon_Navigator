@@ -124,6 +124,13 @@ flowchart LR
 | reduction_percent | number | 削減率(%) |
 | is_active | boolean | 有効/無効 |
 
+### monthly_closes / activity_comments / branches / user_project_access
+
+- **monthly_closes**: 工事・対象月の締め状態（project_id, target_month, closed_by, closed_at）。締め後は活動量の登録/更新/削除/承認と再算定をブロック
+- **activity_comments**: 活動量へのコメントスレッド（activity_id, author, content, created_at）
+- **branches**: 支店マスタ（name）
+- **user_project_access**: 発注者(client)ユーザーへの工事アクセス割当（user_id, project_id）
+
 ## 3. 入力検証
 
 | 検証 | 内容 |
@@ -183,3 +190,8 @@ flowchart TD
 - デモデータ生成が冪等で、削除で完全に戻るか
 - Scope分類・Scope別集計が正しいか
 - SBTi進捗（達成率・順調判定）が正しいか
+- 月次締め後に入力・承認・再算定がブロックされ、解除後に復帰するか
+- 前月コピーが承認解除で作成され、重複はスキップされるか
+- 発注者(client)は割当工事のみ閲覧でき、書き込みは常に拒否されるか
+- 支店持ちのsiteユーザーは他支店の工事を変更できないか
+- SMTP/Teams/テレマティクスが未設定時に安全に無効化されるか

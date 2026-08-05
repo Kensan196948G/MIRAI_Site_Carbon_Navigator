@@ -13,6 +13,8 @@ def create_project(
     db: Session = Depends(get_db),
     user=Depends(require_at_least("site")),
 ):
+    if user.role == "site" and user.branch:
+        project.branch = user.branch
     return crud.create_project(db, project, actor=user.username)
 
 
@@ -21,7 +23,7 @@ def list_projects(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    return crud.list_projects(db)
+    return crud.list_projects_for_user(db, user)
 
 
 @router.get("/{project_id}", response_model=schemas.ProjectRead)
@@ -33,6 +35,8 @@ def get_project(
     project = crud.get_project(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if not crud.has_project_access(db, user, project_id):
+        raise HTTPException(status_code=403, detail="Project access denied")
     return project
 
 
@@ -43,9 +47,12 @@ def update_project(
     db: Session = Depends(get_db),
     user=Depends(require_at_least("site")),
 ):
-    project = crud.update_project(db, project_id, body, user.username)
-    if not project:
+    existing = crud.get_project(db, project_id)
+    if not existing:
         raise HTTPException(status_code=404, detail="Project not found")
+    if user.role == "site" and user.branch and existing.branch != user.branch:
+        raise HTTPException(status_code=403, detail="他支店の工事は変更できません")
+    project = crud.update_project(db, project_id, body, user.username)
     return project
 
 
@@ -55,5 +62,10 @@ def delete_project(
     db: Session = Depends(get_db),
     user=Depends(require_at_least("admin")),
 ):
+    project = crud.get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if user.role == "site" and user.branch and project.branch != user.branch:
+        raise HTTPException(status_code=403, detail="他支店の工事は削除できません")
     if not crud.delete_project(db, project_id, user.username):
         raise HTTPException(status_code=404, detail="Project not found")

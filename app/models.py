@@ -41,6 +41,7 @@ class EmissionFactor(Base):
     factor_value = Column(Float)
     effective_from = Column(Date)
     source = Column(String)
+    supplier = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True))
     created_by = Column(String, nullable=True)
     updated_at = Column(DateTime(timezone=True), nullable=True)
@@ -66,6 +67,7 @@ class ActivityData(Base):
     updated_by = Column(String, nullable=True)
     updated_at = Column(DateTime(timezone=True), nullable=True)
     note = Column(String, nullable=True)
+    supplier = Column(String, nullable=True)
 
     project = relationship("Project", back_populates="activities")
 
@@ -96,6 +98,8 @@ class User(Base):
     display_name = Column(String, nullable=True)
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False, default="viewer")  # admin/reviewer/site/viewer
+    branch = Column(String, nullable=True)
+    email = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True))
 
@@ -175,3 +179,46 @@ class SbtiTarget(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True))
     updated_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class MonthlyClose(Base):
+    __tablename__ = "monthly_closes"
+
+    close_id = Column(String, primary_key=True)
+    project_id = Column(String, ForeignKey("projects.project_id"), nullable=False)
+    target_month = Column(String, nullable=False)
+    closed_by = Column(String, nullable=False)
+    closed_at = Column(DateTime(timezone=True), nullable=False)
+    note = Column(String, nullable=True)
+
+    project = relationship("Project")
+
+
+class ActivityComment(Base):
+    __tablename__ = "activity_comments"
+
+    comment_id = Column(String, primary_key=True)
+    activity_id = Column(String, ForeignKey("activity_data.activity_id"), nullable=False)
+    author = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+    activity = relationship("ActivityData")
+
+
+class Branch(Base):
+    __tablename__ = "branches"
+
+    branch_id = Column(String, primary_key=True)
+    name = Column(String, unique=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class UserProjectAccess(Base):
+    __tablename__ = "user_project_access"
+
+    access_id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.user_id"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.project_id"), nullable=False)
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)

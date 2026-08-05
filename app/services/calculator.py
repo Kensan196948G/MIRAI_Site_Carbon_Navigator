@@ -52,6 +52,7 @@ def calculate_all_for_month(
             activity.item_name,
             activity.unit,
             effective_on=effective_on,
+            supplier=activity.supplier,
         )
         if factor is None:
             missing_factors.append(activity)

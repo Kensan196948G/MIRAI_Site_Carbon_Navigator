@@ -38,6 +38,7 @@ class EmissionFactorCreate(BaseModel):
     factor_value: float
     effective_from: datetime.date
     source: str
+    supplier: Optional[str] = None
 
 
 class EmissionFactorUpdate(BaseModel):
@@ -47,6 +48,7 @@ class EmissionFactorUpdate(BaseModel):
     factor_value: Optional[float] = None
     effective_from: Optional[datetime.date] = None
     source: Optional[str] = None
+    supplier: Optional[str] = None
 
 
 class EmissionFactorRead(EmissionFactorCreate):
@@ -67,6 +69,7 @@ class ActivityDataCreate(BaseModel):
     source_file: Optional[str] = None
     created_by: str = "system"
     note: Optional[str] = None
+    supplier: Optional[str] = None
 
     @field_validator("target_month")
     @classmethod
@@ -90,6 +93,7 @@ class ActivityDataUpdate(BaseModel):
     unit: Optional[str] = None
     source_file: Optional[str] = None
     note: Optional[str] = None
+    supplier: Optional[str] = None
 
 
 class ActivityDataRead(ActivityDataCreate):
@@ -195,6 +199,8 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=6)
     display_name: Optional[str] = None
     role: str = "viewer"
+    branch: Optional[str] = None
+    email: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
@@ -202,6 +208,8 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     password: Optional[str] = Field(default=None, min_length=6)
     is_active: Optional[bool] = None
+    branch: Optional[str] = None
+    email: Optional[str] = None
 
 
 class UserRead(BaseModel):
@@ -355,3 +363,104 @@ class DemoGenerateResult(BaseModel):
     action_count: int
     feedback_count: int
     projects: list[str]
+
+
+class MonthlyCloseCreate(BaseModel):
+    project_id: str
+    target_month: str
+    note: Optional[str] = None
+
+
+class MonthlyCloseRead(MonthlyCloseCreate):
+    model_config = ConfigDict(from_attributes=True)
+    close_id: str
+    closed_by: str
+    closed_at: datetime.datetime
+
+
+class ActivityCommentCreate(BaseModel):
+    content: str
+
+
+class ActivityCommentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    comment_id: str
+    activity_id: str
+    author: str
+    content: str
+    created_at: datetime.datetime
+
+
+class BranchCreate(BaseModel):
+    name: str
+
+
+class BranchRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    branch_id: str
+    name: str
+    created_at: datetime.datetime
+
+
+class CopyPreviousRequest(BaseModel):
+    project_id: str
+    from_month: str
+    to_month: str
+
+
+class CopyPreviousResult(BaseModel):
+    copied: int
+    skipped: int
+    errors: list[str]
+
+
+class ReminderItem(BaseModel):
+    project_id: str
+    project_name: str
+    branch: Optional[str] = None
+    status: str  # no_data / unapproved
+    activity_count: int
+
+
+class ReminderSendRequest(BaseModel):
+    target_month: str
+
+
+class UnitConvertRequest(BaseModel):
+    value: float
+    from_unit: str
+    to_unit: str
+
+
+class UnitConvertResult(BaseModel):
+    value: float
+    from_unit: str
+    to_unit: str
+    converted_value: float
+    conversion_factor: float
+
+
+class TelematicsImportRequest(BaseModel):
+    project_id: str
+    target_month: str
+
+
+class TelematicsImportResult(BaseModel):
+    imported: int
+    skipped: int
+    provider: str
+    items: list[dict]
+
+
+class UserProjectAccessCreate(BaseModel):
+    user_id: str
+    project_ids: list[str]
+
+
+class UserProjectAccessRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    access_id: str
+    user_id: str
+    project_id: str
+    created_by: str
+    created_at: datetime.datetime

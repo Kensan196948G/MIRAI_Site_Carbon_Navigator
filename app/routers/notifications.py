@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from .. import crud, schemas
 from ..database import get_db
-from ..security import get_current_user
+from ..security import get_current_user, require_at_least
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
@@ -41,3 +41,30 @@ def mark_all_read(
     user=Depends(get_current_user),
 ):
     crud.mark_all_notifications_read(db, user)
+
+
+@router.post("/remind", response_model=dict)
+def send_reminders(
+    body: schemas.ReminderSendRequest,
+    db: Session = Depends(get_db),
+    user=Depends(require_at_least("admin")),
+):
+    reminders = crud.get_monthly_reminders(db, body.target_month)
+    for item in reminders:
+        status_text = "データ未登録" if item["status"] == "no_data" else "未承認データあり"
+        crud.add_notification(
+            db,
+            message=f"【督促】{item['project_name']}（{body.target_month}）: {status_text}",
+            recipient_role="admin",
+        )
+        crud.add_notification(
+            db,
+            message=f"【督促】{item['project_name']}（{body.target_month}）: {status_text}",
+            recipient_role="site",
+        )
+        crud.add_notification(
+            db,
+            message=f"【督促】{item['project_name']}（{body.target_month}）: {status_text}",
+            recipient_role="reviewer",
+        )
+    return {"reminded_projects": len(reminders)}

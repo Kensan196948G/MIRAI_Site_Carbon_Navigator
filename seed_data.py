@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from app.database import SessionLocal, create_tables
 from app import crud, schemas
 from app.security import hash_password
-from app.models import User
+from app.models import Branch, User
 
 
 def seed():
@@ -26,6 +26,9 @@ def seed():
         {"category": "fuel", "item_name": "LPG", "unit": "kg", "factor_value": 3.00, "source": "環境省 排出係数"},
         # Power
         {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.434, "source": "環境省 排出係数 (全国平均)"},
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.435, "source": "東京電力EP 排出係数 (目安)", "supplier": "東京電力EP"},
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.409, "source": "関西電力 排出係数 (目安)", "supplier": "関西電力"},
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.428, "source": "中部電力 排出係数 (目安)", "supplier": "中部電力"},
         # Material
         {"category": "material", "item_name": "鋼材", "unit": "t", "factor_value": 2000.0, "source": "環境省 排出係数"},
         {"category": "material", "item_name": "コンクリート", "unit": "t", "factor_value": 300.0, "source": "環境省 排出係数"},
@@ -50,7 +53,9 @@ def seed():
     for f in factors:
         existing = crud.list_emission_factors(db, category=f["category"])
         already_exists = any(
-            e.item_name == f["item_name"] and e.unit == f["unit"]
+            e.item_name == f["item_name"]
+            and e.unit == f["unit"]
+            and (e.supplier or None) == (f.get("supplier") or None)
             for e in existing
         )
         if already_exists:
@@ -63,19 +68,20 @@ def seed():
             factor_value=f["factor_value"],
             effective_from=datetime.date(2026, 1, 1),
             source=f["source"],
+            supplier=f.get("supplier"),
         )
         crud.create_emission_factor(db, factor_create)
         added += 1
 
     # Default users (development credentials — rotate before production)
     default_users = [
-        ("admin", "CarbonAdmin", "admin", "admin123"),
-        ("reviewer", "環境レビュアー", "reviewer", "reviewer123"),
-        ("site", "現場入力担当", "site", "site123"),
-        ("viewer", "閲覧ユーザー", "viewer", "viewer123"),
+        ("admin", "CarbonAdmin", "admin", "admin123", None, "admin@example.local"),
+        ("reviewer", "環境レビュアー", "reviewer", "reviewer123", None, "reviewer@example.local"),
+        ("site", "現場入力担当", "site", "site123", "東京支店", "site@example.local"),
+        ("viewer", "閲覧ユーザー", "viewer", "viewer123", None, "viewer@example.local"),
     ]
     users_added = 0
-    for username, display_name, role, password in default_users:
+    for username, display_name, role, password, branch, email in default_users:
         if crud.get_user_by_username(db, username):
             continue
         db_user = User(
@@ -84,6 +90,8 @@ def seed():
             display_name=display_name,
             password_hash=hash_password(password),
             role=role,
+            branch=branch,
+            email=email,
             is_active=True,
             created_at=datetime.datetime.now(datetime.timezone.utc),
         )
@@ -91,10 +99,23 @@ def seed():
         users_added += 1
     db.commit()
 
+    # Default branches
+    branches_added = 0
+    for name in ["東京支店", "大阪支店", "東北支店", "九州支店"]:
+        if db.query(Branch).filter(Branch.name == name).first():
+            continue
+        db.add(Branch(
+            branch_id=str(__import__("uuid").uuid4()),
+            name=name,
+            created_at=datetime.datetime.now(datetime.timezone.utc),
+        ))
+        branches_added += 1
+    db.commit()
+
     db.close()
     print(
         f"Seed complete: {added} factors added, {skipped} skipped "
-        f"(already exist), {users_added} users added"
+        f"(already exist), {users_added} users added, {branches_added} branches added"
     )
 
 

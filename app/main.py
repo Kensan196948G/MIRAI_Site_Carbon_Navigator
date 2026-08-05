@@ -14,14 +14,19 @@ from .routers import (
     activities,
     audit,
     auth,
+    branches,
+    closes,
     demo,
     emissions,
+    export,
     factors,
     feedbacks,
     notifications,
     projects,
     reports,
     sbti,
+    telematics,
+    units,
     users,
 )
 
@@ -68,6 +73,11 @@ app.include_router(notifications.router)
 app.include_router(feedbacks.router)
 app.include_router(sbti.router)
 app.include_router(demo.router)
+app.include_router(closes.router)
+app.include_router(units.router)
+app.include_router(branches.router)
+app.include_router(telematics.router)
+app.include_router(export.router)
 
 
 # Serve static frontend files

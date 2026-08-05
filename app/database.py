@@ -39,6 +39,7 @@ def _ensure_columns():
                 "updated_by": "ALTER TABLE activity_data ADD COLUMN updated_by VARCHAR",
                 "updated_at": f"ALTER TABLE activity_data ADD COLUMN updated_at {datetime_type}",
                 "note": "ALTER TABLE activity_data ADD COLUMN note VARCHAR",
+                "supplier": "ALTER TABLE activity_data ADD COLUMN supplier VARCHAR",
             }.items():
                 if col not in columns:
                     conn.execute(text(ddl))
@@ -72,10 +73,20 @@ def _ensure_columns():
         with engine.begin() as conn:
             if "created_by" not in columns:
                 conn.execute(text("ALTER TABLE emission_factors ADD COLUMN created_by VARCHAR"))
+            if "supplier" not in columns:
+                conn.execute(text("ALTER TABLE emission_factors ADD COLUMN supplier VARCHAR"))
             if "updated_at" not in columns:
                 conn.execute(text(f"ALTER TABLE emission_factors ADD COLUMN updated_at {datetime_type}"))
             if "updated_by" not in columns:
                 conn.execute(text("ALTER TABLE emission_factors ADD COLUMN updated_by VARCHAR"))
+
+    if "users" in tables:
+        columns = {c["name"] for c in inspector.get_columns("users")}
+        with engine.begin() as conn:
+            if "branch" not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN branch VARCHAR"))
+            if "email" not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR"))
 
 
 def get_db():

@@ -12,23 +12,49 @@ from ..security import get_current_user
 router = APIRouter(prefix="/api/emissions", tags=["emissions"])
 
 
+def _ensure_project_access(user, db: Session, project_id: Optional[str]):
+    if project_id and not crud.has_project_access(db, user, project_id):
+        raise HTTPException(status_code=403, detail="Project access denied")
+
+
 @router.get("/dashboard")
 def get_dashboard(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    projects = crud.list_projects(db)
+    projects = crud.list_projects_for_user(db, user)
+    allowed_ids = {p.project_id for p in projects}
     project_count = len(projects)
-    results = crud.get_results_by_project(db)
+    results = [
+        r for r in crud.get_results_by_project(db)
+        if r.activity.project_id in allowed_ids
+    ]
     total_co2_kg = sum(r.co2_kg for r in results)
     by_category: dict[str, float] = {}
     for r in results:
         cat = r.activity.category
         by_category[cat] = by_category.get(cat, 0.0) + r.co2_kg
-    missing = len(crud.find_missing_factors(db))
-    trend = crud.get_monthly_trend(db)
+    missing_activities = [
+        a for a in crud.find_missing_factors(db)
+        if a.project_id in allowed_ids
+    ]
+    missing = len(missing_activities)
+    monthly: dict[str, dict] = {}
+    for r in results:
+        month = r.activity.target_month
+        entry = monthly.setdefault(
+            month, {"target_month": month, "by_category": {}, "total_co2_kg": 0.0}
+        )
+        cat = r.activity.category
+        entry["by_category"][cat] = entry["by_category"].get(cat, 0.0) + r.co2_kg
+        entry["total_co2_kg"] += r.co2_kg
+    trend = []
+    for month in sorted(monthly.keys()):
+        entry = monthly[month]
+        entry["total_co2_t"] = entry["total_co2_kg"] / 1000.0
+        trend.append(entry)
     approved_count = len(
-        [a for a in crud.list_activity_data(db) if a.approved]
+        [a for a in crud.list_activity_data(db) if a.approved and a.project_id in allowed_ids]
     )
     return {
         "project_count": project_count,
@@ -50,6 +76,8 @@ def run_calculation(
     project = crud.get_project(db, body.project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if crud.is_month_closed(db, body.project_id, body.target_month):
+        raise HTTPException(status_code=400, detail="対象月は締め済みのため再算定できません")
     outcome = calculate_all_for_month(db, body.project_id, body.target_month)
     if outcome["missing_factors"]:
         crud.add_notification(
@@ -88,6 +116,7 @@ def get_results(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    _ensure_project_access(user, db, project_id)
     return crud.get_results_by_project(db, project_id=project_id, target_month=target_month)
 
 
@@ -98,6 +127,7 @@ def get_summary(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    _ensure_project_access(user, db, project_id)
     results = crud.get_results_by_project(db, project_id=project_id, target_month=target_month)
     totals: dict[str, float] = {}
     for r in results:
@@ -113,6 +143,7 @@ def get_trend(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    _ensure_project_access(user, db, project_id)
     return crud.get_monthly_trend(db, project_id=project_id, category=category)
 
 
@@ -123,6 +154,7 @@ def get_missing_factors(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    _ensure_project_access(user, db, project_id)
     activities = crud.find_missing_factors(db, project_id=project_id, target_month=target_month)
     return [
         schemas.MissingFactorItem(
@@ -143,6 +175,7 @@ def get_benchmark_endpoint(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    _ensure_project_access(user, db, project_id)
     project = crud.get_project(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -156,6 +189,7 @@ def get_anomalies_endpoint(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    _ensure_project_access(user, db, project_id)
     if not crud.get_project(db, project_id):
         raise HTTPException(status_code=404, detail="Project not found")
     return detect_anomalies(db, project_id, target_month)
@@ -169,6 +203,7 @@ def get_scope_summary(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    _ensure_project_access(user, db, project_id)
     results = crud.get_results_by_project(db, project_id=project_id, target_month=target_month)
     if year:
         prefix = f"{year}-"
@@ -185,6 +220,7 @@ def get_reduction(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    _ensure_project_access(user, db, project_id)
     project = crud.get_project(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -194,3 +230,12 @@ def get_reduction(
         for r in results
     ]
     return get_reduction_suggestions(results_with_cat)
+
+
+@router.get("/reminders", response_model=list[schemas.ReminderItem])
+def get_reminders(
+    target_month: str,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    return crud.get_monthly_reminders(db, target_month)

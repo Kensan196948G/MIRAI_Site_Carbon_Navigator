@@ -53,7 +53,7 @@ frontend/
 └── static/
     ├── css/style.css
     └── js/app.js
-tests/                   # pytest (114件)
+tests/                   # pytest (136件)
 ```
 
 ## 🚀 クイックスタート
@@ -84,6 +84,7 @@ docker-compose up --build
 | reviewer | reviewer123 | EnvironmentReviewer | 活動量承認・監査ログ閲覧・削減アクション削除 |
 | site | site123 | SiteInput | 工事・活動量・削減アクションの登録/編集 |
 | viewer | viewer123 | Viewer | 閲覧のみ |
+| client | （管理者が作成） | Client | 割当てられた工事の閲覧のみ（発注者向け） |
 
 > ⚠️ 開発用の初期パスワードです。本番投入前に必ず変更してください。
 
@@ -111,6 +112,17 @@ docker-compose up --build
 | F-18 | 現場フィードバック（登録・対応状況管理） | ✅ 実装済み |
 | F-19 | SBTi目標管理（Scope別削減目標・進捗・順調判定） | ✅ 実装済み |
 | F-20 | Scope3拡張（GHG Protocol分類・Scope別集計・出張/通勤/水） | ✅ 実装済み |
+| F-21 | 月次締め・確定ロック（締め後は登録/編集/承認/再算定をブロック） | ✅ 実装済み |
+| F-22 | 前月データのコピー作成 | ✅ 実装済み |
+| F-23 | 未入力督促一覧 + 督促通知 | ✅ 実装済み |
+| F-24 | メール(SMTP)/Teams通知（環境変数で有効化） | ✅ 実装済み |
+| F-25 | 全量エクスポート（ZIP/JSONバックアップ） | ✅ 実装済み |
+| F-26 | 活動量コメントスレッド | ✅ 実装済み |
+| F-27 | 電気事業者別排出係数 + 単位換算エンジン | ✅ 実装済み |
+| F-28 | 工事カルテPDF（全期間サマリー） | ✅ 実装済み |
+| F-29 | 支店マスタ + 支店別権限（siteは自支店のみ操作） | ✅ 実装済み |
+| F-30 | テレマティクス連携（シミュレータ/コマツAPIアダプタ） | ✅ 実装済み |
+| F-31 | 発注者ポータル（clientロール・工事別アクセス割当・閲覧のみ） | ✅ 実装済み |
 
 ## 🧮 算定方式
 
@@ -163,16 +175,28 @@ Scope別集計は算定画面のカード、Excel/CSV/PDFレポートの「Scope
 | PUT/DELETE | /api/activities/{id} | 活動量更新/削除 | site〜 |
 | POST | /api/activities/import | Excel一括取込 | site〜 |
 | GET | /api/activities/template | 取込テンプレート | site〜 |
+| POST | /api/activities/copy-previous | 前月データのコピー | site〜 |
+| GET/POST/DELETE | /api/activities/{id}/comments | コメントスレッド | 閲覧: viewer〜 / 投稿: site〜 / 削除: reviewer〜 |
 | POST | /api/emissions/calculate | CO2算定 | viewer〜 |
 | GET | /api/emissions/trend | 月次トレンド | viewer〜 |
 | GET | /api/emissions/missing-factors | 係数未設定一覧 | viewer〜 |
 | GET | /api/emissions/reduction/{project}/{month} | 削減ナビ | viewer〜 |
 | GET | /api/emissions/scope-summary?project_id=&target_month=&year= | Scope別集計 | viewer〜 |
+| GET | /api/emissions/reminders?target_month= | 督促一覧 | viewer〜 |
+| POST/DELETE | /api/closes | 月次締め/締め解除 | 締め: reviewer〜 / 解除: admin |
 | GET | /api/reports/monthly/{project}/{month}?format=xlsx\|csv\|pdf | レポート出力 | viewer〜 |
 | GET | /api/emissions/benchmark?project_id=&target_month= | 同工種ベンチマーク | viewer〜 |
 | GET | /api/emissions/anomalies?project_id=&target_month= | 異常値検知 | viewer〜 |
 | GET | /api/notifications | 通知一覧（未読フィルタ可） | viewer〜 |
 | PUT | /api/notifications/{id}/read, /api/notifications/read-all | 既読管理 | viewer〜 |
+| POST | /api/notifications/remind | 督促送信 | admin |
+| POST | /api/units/convert | 単位換算 | viewer〜 |
+| GET | /api/branches | 支店一覧 | viewer〜 |
+| POST/DELETE | /api/branches | 支店管理 | admin |
+| GET/POST | /api/telematics/import | テレマティクス取込 | site〜 |
+| GET | /api/export/full | 全量バックアップ(ZIP) | admin |
+| GET | /api/reports/card/{project_id} | 工事カルテPDF | viewer〜（clientは割当工事のみ） |
+| GET/PUT | /api/users/{id}/projects | 発注者への工事アクセス割当 | admin |
 | GET/POST/PUT/DELETE | /api/feedbacks | 現場フィードバック | 閲覧: viewer〜 / 編集: site〜 / 削除: reviewer〜 |
 | GET | /api/sbti/progress | SBTi進捗 | viewer〜 |
 | GET/POST/PUT/DELETE | /api/sbti/targets | SBTi目標管理 | 管理: admin / 閲覧: viewer〜 |
@@ -189,6 +213,10 @@ Scope別集計は算定画面のカード、Excel/CSV/PDFレポートの「Scope
 | DATABASE_URL | sqlite:///./carbon_navigator.db | DB接続文字列 |
 | MIRAI_SECRET_KEY | 起動時ランダム | トークン署名キー（本番は固定値を設定） |
 | MIRAI_CORS_ORIGINS | http://localhost:8000,http://127.0.0.1:8000 | 許可オリジン（カンマ区切り） |
+| MIRAI_SMTP_HOST / PORT / USER / PASSWORD / FROM / TLS | 未設定 | メール通知（未設定ならDB通知のみ） |
+| MIRAI_TEAMS_WEBHOOK | 未設定 | Teamsへの通知Webhook |
+| MIRAI_TELEMATICS_MODE | disabled | disabled / simulator / komatsu |
+| MIRAI_KOMATSU_BASE_URL / API_KEY | 未設定 | コマツ系テレマティクスAPI接続情報 |
 
 ### PostgreSQL での起動（Docker Compose）
 
@@ -207,7 +235,7 @@ PostgreSQL は `docker-compose.yml` の `db` サービスで自動起動し、ap
 ```bash
 pip install -r requirements.txt pytest httpx
 pytest tests/ -v
-# → 114 passed
+# → 136 passed
 ```
 
 ## 🗺️ ロードマップ
@@ -229,10 +257,14 @@ gantt
   PDF・ベンチマーク・通知   :done, d1, 2026-08-05, 2d
   PostgreSQL対応           :done, d2, after d1, 1d
   ユーザー管理画面          :done, d3, after d2, 1d
-  section Phase 5 (次フェーズ)
+  section Phase 5 (完了)
   PoCデモデータ・フィードバック :done, e1, 2026-08-05, 2d
   SBTi目標・Scope3拡張        :done, e2, after e1, 2d
-  2現場実地PoC                :e3, 2026-09-01, 30d
+  締め・コピー・督促・通知     :done, e3, after e2, 2d
+  単位換算・供給者係数・カルテ :done, e4, after e3, 2d
+  支店権限・テレマティクス・発注者ポータル :done, e5, after e4, 3d
+  section Phase 6 (次フェーズ)
+  2現場実地PoC                :e6, 2026-09-01, 30d
 ```
 
 ## 📄 関連ドキュメント

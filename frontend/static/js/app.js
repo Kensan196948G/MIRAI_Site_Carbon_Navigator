@@ -36,8 +36,8 @@ const CATEGORY_COLORS = {
   other: '#95a5a6',
 };
 
-const ROLE_LEVELS = { viewer: 0, site: 1, reviewer: 2, admin: 3 };
-const ROLE_LABELS = { viewer: '閲覧', site: '現場入力', reviewer: 'レビュアー', admin: '管理者' };
+const ROLE_LEVELS = { viewer: 0, client: 0, site: 1, reviewer: 2, admin: 3 };
+const ROLE_LABELS = { viewer: '閲覧', client: '発注者', site: '現場入力', reviewer: 'レビュアー', admin: '管理者' };
 
 let currentProjectId = null;
 let currentPage = 'dashboard';
@@ -454,8 +454,69 @@ async function loadDashboard() {
     renderDashboardCharts(data);
     loadDashboardSbti();
     loadDemoStatus();
+    loadReminders();
   } catch (err) {
     showToast(`ダッシュボード取得失敗: ${err.message}`, 'danger');
+  }
+}
+
+async function loadReminders() {
+  const list = document.getElementById('reminderList');
+  if (!list) return;
+  try {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const reminders = await fetchJSON(`/api/emissions/reminders?target_month=${month}`);
+    while (list.firstChild) list.removeChild(list.firstChild);
+    if (!reminders || !reminders.length) {
+      const p = document.createElement('p');
+      p.className = 'text-muted small mb-0';
+      p.textContent = '督促対象はありません';
+      list.appendChild(p);
+      return;
+    }
+    const ul = document.createElement('ul');
+    ul.className = 'mb-0 small';
+    for (const r of reminders.slice(0, 8)) {
+      const li = document.createElement('li');
+      li.textContent = `${r.project_name}（${r.branch || '-'}）: ${r.status === 'no_data' ? 'データ未登録' : `未承認 ${r.activity_count}件`}`;
+      ul.appendChild(li);
+    }
+    list.appendChild(ul);
+  } catch (_) {
+    const p = document.createElement('p');
+    p.className = 'text-muted small mb-0';
+    p.textContent = '督促状況を取得できませんでした';
+    list.appendChild(p);
+  }
+}
+
+async function sendReminders() {
+  if (!window.confirm('督促通知を全対象へ送信しますか？')) return;
+  showLoading();
+  try {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const data = await fetchJSON('/api/notifications/remind', { method: 'POST', body: { target_month: month } });
+    showToast(`督促を${data.reminded_projects}件送信しました`, 'success');
+    refreshUnreadBadge();
+    loadReminders();
+  } catch (err) {
+    showToast(`督促送信失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function exportFull() {
+  showLoading();
+  try {
+    await downloadFile('/api/export/full', `mirai_carbon_export_${new Date().toISOString().slice(0, 10)}.zip`);
+    showToast('全量エクスポートをダウンロードしました', 'success');
+  } catch (err) {
+    showToast(`エクスポート失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
   }
 }
 
@@ -634,6 +695,10 @@ function renderProjectsTable(projects) {
 
     const actionTd = document.createElement('td');
     actionTd.className = 'text-center';
+    actionTd.appendChild(makeActionButton('', 'bi-file-earmark-pdf', ev => {
+      ev.stopPropagation();
+      downloadProjectCard(p);
+    }, 'btn-outline-danger btn-icon', '工事カルテPDF'));
     if (hasRole('site')) {
       actionTd.appendChild(makeActionButton('編集', 'bi-pencil', ev => {
         ev.stopPropagation();
@@ -650,6 +715,18 @@ function renderProjectsTable(projects) {
 
     tr.addEventListener('click', () => selectProject(p.project_id, p.name || p.project_id, tr));
     tbody.appendChild(tr);
+  }
+}
+
+async function downloadProjectCard(project) {
+  showLoading();
+  try {
+    await downloadFile(`/api/reports/card/${encodeURIComponent(project.project_id)}`, `project_card_${project.project_id.slice(0, 8)}.pdf`);
+    showToast('工事カルテをダウンロードしました', 'success');
+  } catch (err) {
+    showToast(`ダウンロード失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
   }
 }
 
@@ -770,9 +847,35 @@ async function loadActivities(projectId, month) {
     const params = new URLSearchParams({ project_id: projectId, target_month: month });
     const activities = await fetchJSON(`/api/activities?${params}`);
     renderActivitiesTable(activities);
+    updateActivityLockState(projectId, month);
   } catch (err) {
     setTbodyRow(tbody, makeErrorRow(8, err.message));
   }
+}
+
+async function updateActivityLockState(projectId, month) {
+  const alertEl = document.getElementById('activityLockAlert');
+  const form = document.getElementById('activityForm');
+  const buttons = document.querySelectorAll('#section-activities [data-role-min]');
+  if (!alertEl) return;
+  try {
+    const closes = await fetchJSON(`/api/closes?${new URLSearchParams({ project_id: projectId, target_month: month })}`);
+    const locked = closes && closes.length > 0;
+    if (locked) {
+      alertEl.textContent = '🔒 この工事・対象月は締め済みです。活動量の登録・編集・承認はできません。';
+      alertEl.classList.remove('d-none');
+    } else {
+      alertEl.classList.add('d-none');
+    }
+    if (form) {
+      form.querySelectorAll('input, select, button[type=button]').forEach(el => { el.disabled = locked; });
+      const submit = form.querySelector('button[onclick="submitActivityForm()"]');
+      if (submit) submit.disabled = locked;
+    }
+    buttons.forEach(el => {
+      if (el.id !== 'bulkApproveBtn') el.disabled = locked;
+    });
+  } catch (_) {}
 }
 
 function renderActivitiesTable(activities) {
@@ -815,6 +918,7 @@ function renderActivitiesTable(activities) {
 
     const actionTd = document.createElement('td');
     actionTd.className = 'text-center';
+    actionTd.appendChild(makeActionButton('', 'bi-chat-dots', () => openComments(a.activity_id, a.item_name), 'btn-outline-secondary btn-icon', 'コメント'));
     if (hasRole('site')) {
       actionTd.appendChild(makeActionButton('', 'bi-pencil', () => openActivityEditModal(a), 'btn-outline-primary btn-icon', '編集'));
       actionTd.appendChild(makeActionButton('', 'bi-trash', () => deleteActivity(a), 'btn-outline-danger btn-icon', '削除'));
@@ -843,6 +947,7 @@ async function submitActivityForm() {
     quantity: parseFloat(document.getElementById('fQuantity').value),
     unit: document.getElementById('fUnit').value.trim(),
     source_file: document.getElementById('fSourceFile').value.trim() || null,
+    supplier: document.getElementById('fSupplier').value.trim() || null,
     note: document.getElementById('fNote').value.trim() || null,
   };
 
@@ -859,6 +964,71 @@ async function submitActivityForm() {
     showToast(`登録失敗: ${err.message}`, 'danger');
   } finally {
     hideLoading();
+  }
+}
+
+function previousMonth(month) {
+  const [y, m] = month.split('-').map(Number);
+  if (m === 1) return `${y - 1}-12`;
+  return `${y}-${String(m - 1).padStart(2, '0')}`;
+}
+
+async function copyPreviousMonth() {
+  const projectId = document.getElementById('actProjectSelect').value;
+  const month = document.getElementById('actMonthPicker').value;
+  if (!projectId || !month) { showToast('工事と対象月を選択してください', 'warning'); return; }
+  if (!window.confirm(`${previousMonth(month)} の活動量を ${month} へコピーしますか？（承認状態は解除されます）`)) return;
+  showLoading();
+  try {
+    const data = await fetchJSON('/api/activities/copy-previous', {
+      method: 'POST',
+      body: { project_id: projectId, from_month: previousMonth(month), to_month: month },
+    });
+    showToast(`コピー完了: 成功${data.copied}件 / スキップ${data.skipped}件`, data.skipped ? 'warning' : 'success');
+    loadActivities(projectId, month);
+    refreshUnreadBadge();
+  } catch (err) {
+    showToast(`コピー失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function importTelematics() {
+  const projectId = document.getElementById('actProjectSelect').value;
+  const month = document.getElementById('actMonthPicker').value;
+  if (!projectId || !month) { showToast('工事と対象月を選択してください', 'warning'); return; }
+  if (!window.confirm('テレマティクスから建機稼働データを取り込みますか？')) return;
+  showLoading();
+  try {
+    const data = await fetchJSON('/api/telematics/import', {
+      method: 'POST',
+      body: { project_id: projectId, target_month: month },
+    });
+    showToast(`取込完了: 成功${data.imported}件 / スキップ${data.skipped}件（provider: ${data.provider}）`, data.skipped ? 'warning' : 'success');
+    loadActivities(projectId, month);
+    refreshUnreadBadge();
+  } catch (err) {
+    showToast(`取込失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function convertUnit() {
+  const value = parseFloat(document.getElementById('unitValue').value);
+  const fromUnit = document.getElementById('unitFrom').value;
+  const toUnit = document.getElementById('unitTo').value;
+  if (isNaN(value)) { showToast('換算する値を入力してください', 'warning'); return; }
+  try {
+    const data = await fetchJSON('/api/units/convert', {
+      method: 'POST',
+      body: { value, from_unit: fromUnit, to_unit: toUnit },
+    });
+    document.getElementById('unitResult').textContent =
+      `${formatNumber(data.value, 4)} ${data.from_unit} = ${formatNumber(data.converted_value, 4)} ${data.to_unit}（係数 ${formatNumber(data.conversion_factor, 6)}）`;
+  } catch (err) {
+    showToast(`換算失敗: ${err.message}`, 'danger');
   }
 }
 
@@ -940,6 +1110,7 @@ function openActivityEditModal(activity) {
   document.getElementById('eQuantity').value = activity.quantity;
   document.getElementById('eUnit').value = activity.unit;
   document.getElementById('eSourceFile').value = activity.source_file || '';
+  document.getElementById('eSupplier').value = activity.supplier || '';
   document.getElementById('eNote').value = activity.note || '';
   bootstrap.Modal.getOrCreateInstance(document.getElementById('activityEditModal')).show();
 }
@@ -952,6 +1123,7 @@ async function submitActivityEdit() {
     quantity: parseFloat(document.getElementById('eQuantity').value),
     unit: document.getElementById('eUnit').value.trim(),
     source_file: document.getElementById('eSourceFile').value.trim() || null,
+    supplier: document.getElementById('eSupplier').value.trim() || null,
     note: document.getElementById('eNote').value.trim() || null,
   };
   showLoading();
@@ -978,6 +1150,63 @@ async function deleteActivity(activity) {
     showToast(`削除失敗: ${err.message}`, 'danger');
   } finally {
     hideLoading();
+  }
+}
+
+// ===== Activity Comments =====
+async function openComments(activityId, itemName) {
+  document.getElementById('commentActivityId').value = activityId;
+  document.getElementById('commentModalLabel').textContent = `コメント: ${itemName || ''}`;
+  document.getElementById('commentInput').value = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('commentModal')).show();
+  await loadComments();
+}
+
+async function loadComments() {
+  const activityId = document.getElementById('commentActivityId').value;
+  const list = document.getElementById('commentList');
+  if (!activityId || !list) return;
+  try {
+    const comments = await fetchJSON(`/api/activities/${activityId}/comments`);
+    while (list.firstChild) list.removeChild(list.firstChild);
+    if (!comments || !comments.length) {
+      const p = document.createElement('p');
+      p.className = 'text-muted small';
+      p.textContent = 'コメントはまだありません。';
+      list.appendChild(p);
+      return;
+    }
+    for (const c of comments) {
+      const div = document.createElement('div');
+      div.className = 'border rounded p-2 mb-2';
+      const meta = document.createElement('div');
+      meta.className = 'small text-muted';
+      meta.textContent = `${c.author} / ${new Date(c.created_at).toLocaleString('ja-JP')}`;
+      const body = document.createElement('div');
+      body.className = 'small';
+      body.textContent = c.content;
+      div.appendChild(meta);
+      div.appendChild(body);
+      list.appendChild(div);
+    }
+  } catch (err) {
+    showToast(`コメント取得失敗: ${err.message}`, 'danger');
+  }
+}
+
+async function addComment() {
+  const activityId = document.getElementById('commentActivityId').value;
+  const input = document.getElementById('commentInput');
+  const content = input.value.trim();
+  if (!content) { showToast('コメントを入力してください', 'warning'); return; }
+  try {
+    await fetchJSON(`/api/activities/${activityId}/comments`, { method: 'POST', body: { content } });
+    input.value = '';
+    showToast('コメントを送信しました', 'success');
+    loadComments();
+    refreshUnreadBadge();
+  } catch (err) {
+    showToast(`送信失敗: ${err.message}`, 'danger');
   }
 }
 
@@ -1028,6 +1257,18 @@ async function executeCalculation() {
   const month = document.getElementById('calcMonthPicker').value;
   if (!projectId) { showToast('工事を選択してください', 'warning'); return; }
   if (!month) { showToast('対象月を選択してください', 'warning'); return; }
+
+  try {
+    const closes = await fetchJSON(`/api/closes?${new URLSearchParams({ project_id: projectId, target_month: month })}`);
+    if (closes && closes.length) {
+      const alertEl = document.getElementById('calcLockAlert');
+      alertEl.textContent = '🔒 この対象月は締め済みのため再算定できません。';
+      alertEl.classList.remove('d-none');
+      showToast('対象月は締め済みです', 'warning');
+      return;
+    }
+    document.getElementById('calcLockAlert').classList.add('d-none');
+  } catch (_) {}
 
   showLoading();
   try {
@@ -1298,6 +1539,7 @@ async function downloadCurrentReport(format) {
   const month = document.getElementById('rptMonthPicker').value;
   if (!projectId) { showToast('工事を選択してください', 'warning'); return; }
   if (!month) { showToast('対象月を選択してください', 'warning'); return; }
+  await checkReportClose(projectId, month, false);
   showLoading();
   try {
     await downloadFile(
@@ -1307,6 +1549,56 @@ async function downloadCurrentReport(format) {
     showToast('レポートをダウンロードしました', 'success');
   } catch (err) {
     showToast(`ダウンロード失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function checkReportClose(projectId, month, toast = true) {
+  const badge = document.getElementById('closedBadge');
+  const btn = document.getElementById('closeMonthBtn');
+  try {
+    const closes = await fetchJSON(`/api/closes?${new URLSearchParams({ project_id: projectId, target_month: month })}`);
+    const closed = closes && closes.length > 0;
+    if (badge) badge.classList.toggle('d-none', !closed);
+    if (btn) {
+      if (closed) {
+        btn.innerHTML = '<i class="bi bi-unlock me-1" aria-hidden="true"></i>締め解除';
+        btn.dataset.roleMin = 'admin';
+      } else {
+        btn.innerHTML = '<i class="bi bi-lock me-1" aria-hidden="true"></i>月次締め';
+        btn.dataset.roleMin = 'reviewer';
+      }
+      updateAuthUI();
+    }
+    return closes || [];
+  } catch (_) {
+    return [];
+  }
+}
+
+async function toggleMonthClose() {
+  const projectId = document.getElementById('rptProjectSelect').value;
+  const month = document.getElementById('rptMonthPicker').value;
+  if (!projectId || !month) { showToast('工事と対象月を選択してください', 'warning'); return; }
+  const closes = await checkReportClose(projectId, month, false);
+  showLoading();
+  try {
+    if (closes.length) {
+      if (!hasRole('admin')) { showToast('締め解除は管理者のみ可能です', 'warning'); hideLoading(); return; }
+      await fetchJSON(`/api/closes/${closes[0].close_id}`, { method: 'DELETE' });
+      showToast('締めを解除しました', 'success');
+    } else {
+      await fetchJSON('/api/closes', {
+        method: 'POST',
+        body: { project_id: projectId, target_month: month, note: 'レポート画面から締め' },
+      });
+      showToast('月次締めを実行しました', 'success');
+    }
+    checkReportClose(projectId, month, false);
+    refreshUnreadBadge();
+  } catch (err) {
+    showToast(`締め処理失敗: ${err.message}`, 'danger');
   } finally {
     hideLoading();
   }
@@ -1366,7 +1658,11 @@ function renderTrendChart(data) {
 
 function onReportFilterChange() {
   const projectId = document.getElementById('rptProjectSelect').value;
-  if (projectId) loadMonthlyTrend();
+  const month = document.getElementById('rptMonthPicker').value;
+  if (projectId) {
+    checkReportClose(projectId, month, false);
+    loadMonthlyTrend();
+  }
 }
 
 // ===== Factors =====
@@ -1640,12 +1936,17 @@ function renderAuditLogs(logs) {
 // ===== Users =====
 async function loadUsers() {
   const tbody = document.getElementById('usersTableBody');
-  setTbodyRow(tbody, makeLoadingRow(6));
+  setTbodyRow(tbody, makeLoadingRow(7));
   try {
-    const users = await fetchJSON('/api/users');
+    const [users, branches] = await Promise.all([
+      fetchJSON('/api/users'),
+      fetchJSON('/api/branches'),
+    ]);
     renderUsersTable(users);
+    renderBranches(branches);
+    populateBranchSelect(branches);
   } catch (err) {
-    setTbodyRow(tbody, makeErrorRow(6, err.message));
+    setTbodyRow(tbody, makeErrorRow(7, err.message));
   }
 }
 
@@ -1653,7 +1954,7 @@ function renderUsersTable(users) {
   const tbody = document.getElementById('usersTableBody');
   while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
   if (!users || users.length === 0) {
-    tbody.appendChild(makeEmptyRow(6, '👤', 'ユーザーが登録されていません。'));
+    tbody.appendChild(makeEmptyRow(7, '👤', 'ユーザーが登録されていません。'));
     return;
   }
   const auth = getAuth();
@@ -1661,9 +1962,10 @@ function renderUsersTable(users) {
     const tr = document.createElement('tr');
     tr.appendChild(td(u.username));
     tr.appendChild(td(u.display_name || '-'));
+    tr.appendChild(td(u.branch || '-'));
     const roleTd = document.createElement('td');
     roleTd.appendChild(makeBadge(ROLE_LABELS[u.role] || u.role,
-      u.role === 'admin' ? 'bg-danger' : u.role === 'reviewer' ? 'bg-info' : u.role === 'site' ? 'bg-primary' : 'bg-secondary'));
+      u.role === 'admin' ? 'bg-danger' : u.role === 'reviewer' ? 'bg-info' : u.role === 'site' ? 'bg-primary' : u.role === 'client' ? 'bg-dark' : 'bg-secondary'));
     tr.appendChild(roleTd);
     tr.appendChild(td(makeBadge(u.is_active ? '有効' : '無効', u.is_active ? 'bg-success' : 'bg-secondary')));
     tr.appendChild(td(new Date(u.created_at).toLocaleDateString('ja-JP')));
@@ -1671,6 +1973,9 @@ function renderUsersTable(users) {
     actionTd.className = 'text-center';
     if (u.user_id !== auth.user.user_id) {
       actionTd.appendChild(makeActionButton('', 'bi-pencil', () => openUserModal(u), 'btn-outline-primary btn-icon', '編集'));
+      if (u.role === 'client') {
+        actionTd.appendChild(makeActionButton('', 'bi-folder-check', () => openAssignments(u), 'btn-outline-info btn-icon', '工事アクセス割当'));
+      }
       actionTd.appendChild(makeActionButton(
         u.is_active ? '無効化' : '有効化',
         u.is_active ? 'bi-pause-circle' : 'bi-play-circle',
@@ -1685,7 +1990,8 @@ function renderUsersTable(users) {
   }
 }
 
-function openUserModal(user = null) {
+async function openUserModal(user = null) {
+  await populateBranchesIntoSelect();
   const form = document.getElementById('userForm');
   form.reset();
   document.getElementById('eUserId').value = user ? user.user_id : '';
@@ -1696,10 +2002,14 @@ function openUserModal(user = null) {
     document.getElementById('eUsername').value = user.username;
     document.getElementById('eUsername').readOnly = true;
     document.getElementById('eDisplayName').value = user.display_name || '';
+    document.getElementById('eUserBranch').value = user.branch || '';
+    document.getElementById('eUserEmail').value = user.email || '';
     document.getElementById('eUserRole').value = user.role;
     document.getElementById('userModalLabel').textContent = 'ユーザーの編集';
   } else {
     document.getElementById('eUsername').readOnly = false;
+    document.getElementById('eUserBranch').value = '';
+    document.getElementById('eUserEmail').value = '';
     document.getElementById('userModalLabel').textContent = 'ユーザーの新規登録';
   }
   bootstrap.Modal.getOrCreateInstance(document.getElementById('userModal')).show();
@@ -1711,13 +2021,15 @@ async function submitUserForm() {
   const editId = document.getElementById('eUserId').value;
   const username = document.getElementById('eUsername').value.trim();
   const displayName = document.getElementById('eDisplayName').value.trim();
+  const branch = document.getElementById('eUserBranch').value;
+  const email = document.getElementById('eUserEmail').value.trim() || null;
   const role = document.getElementById('eUserRole').value;
   const password = document.getElementById('eUserPassword').value;
 
   showLoading();
   try {
     if (editId) {
-      const data = { display_name: displayName, role };
+      const data = { display_name: displayName, role, branch, email };
       if (password) data.password = password;
       await fetchJSON(`/api/users/${editId}`, { method: 'PUT', body: data });
       showToast('ユーザーを更新しました', 'success');
@@ -1725,7 +2037,7 @@ async function submitUserForm() {
       if (!password) { showToast('パスワードを入力してください', 'warning'); hideLoading(); return; }
       await fetchJSON('/api/users', {
         method: 'POST',
-        body: { username, display_name: displayName, role, password },
+        body: { username, display_name: displayName, role, password, branch, email },
       });
       showToast('ユーザーを登録しました', 'success');
     }
@@ -1749,6 +2061,134 @@ async function toggleUserActive(user) {
     loadUsers();
   } catch (err) {
     showToast(`操作失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function populateBranchesIntoSelect() {
+  try {
+    const branches = await fetchJSON('/api/branches');
+    populateBranchSelect(branches);
+  } catch (_) {}
+}
+
+function populateBranchSelect(branches) {
+  const sel = document.getElementById('eUserBranch');
+  if (!sel) return;
+  const current = sel.value;
+  while (sel.firstChild) sel.removeChild(sel.firstChild);
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = '-- 指定なし --';
+  sel.appendChild(none);
+  for (const b of branches || []) {
+    const opt = document.createElement('option');
+    opt.value = b.name;
+    opt.textContent = b.name;
+    sel.appendChild(opt);
+  }
+  if (current) sel.value = current;
+}
+
+function renderBranches(branches) {
+  const list = document.getElementById('branchList');
+  if (!list) return;
+  while (list.firstChild) list.removeChild(list.firstChild);
+  for (const b of branches || []) {
+    const span = document.createElement('span');
+    span.className = 'badge bg-light text-dark border d-inline-flex align-items-center gap-1';
+    const name = document.createElement('span');
+    name.textContent = b.name;
+    span.appendChild(name);
+    if (hasRole('admin')) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-close btn-close-sm ms-1';
+      btn.setAttribute('aria-label', '削除');
+      btn.style.fontSize = '0.6rem';
+      btn.addEventListener('click', () => deleteBranch(b));
+      span.appendChild(btn);
+    }
+    list.appendChild(span);
+  }
+}
+
+async function addBranch() {
+  const name = document.getElementById('newBranchName').value.trim();
+  if (!name) { showToast('支店名を入力してください', 'warning'); return; }
+  showLoading();
+  try {
+    await fetchJSON('/api/branches', { method: 'POST', body: { name } });
+    document.getElementById('newBranchName').value = '';
+    showToast('支店を追加しました', 'success');
+    loadUsers();
+  } catch (err) {
+    showToast(`追加失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function deleteBranch(branch) {
+  if (!window.confirm(`支店「${branch.name}」を削除しますか？`)) return;
+  showLoading();
+  try {
+    await fetchJSON(`/api/branches/${branch.branch_id}`, { method: 'DELETE' });
+    showToast('支店を削除しました', 'success');
+    loadUsers();
+  } catch (err) {
+    showToast(`削除失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function openAssignments(user) {
+  document.getElementById('assignUserId').value = user.user_id;
+  document.getElementById('assignModalLabel').textContent = `工事アクセス割当: ${user.username}`;
+  const container = document.getElementById('assignProjectList');
+  while (container.firstChild) container.removeChild(container.firstChild);
+  try {
+    const [projects, current] = await Promise.all([
+      fetchJSON('/api/projects'),
+      fetchJSON(`/api/users/${user.user_id}/projects`),
+    ]);
+    const assigned = new Set(current.map(a => a.project_id));
+    for (const p of projects) {
+      const label = document.createElement('label');
+      label.className = 'form-check';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.className = 'form-check-input assign-check';
+      input.value = p.project_id;
+      input.checked = assigned.has(p.project_id);
+      const text = document.createElement('span');
+      text.className = 'form-check-label small';
+      text.textContent = `${p.name}（${p.branch || '-'}）`;
+      label.appendChild(input);
+      label.appendChild(text);
+      container.appendChild(label);
+    }
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('assignModal')).show();
+  } catch (err) {
+    showToast(`割当情報の取得に失敗: ${err.message}`, 'danger');
+  }
+}
+
+async function submitAssignments() {
+  const userId = document.getElementById('assignUserId').value;
+  const projectIds = Array.from(document.querySelectorAll('.assign-check:checked')).map(cb => cb.value);
+  showLoading();
+  try {
+    await fetchJSON(`/api/users/${userId}/projects`, {
+      method: 'PUT',
+      body: { user_id: userId, project_ids: projectIds },
+    });
+    bootstrap.Modal.getInstance(document.getElementById('assignModal')).hide();
+    showToast('工事アクセスを更新しました', 'success');
+  } catch (err) {
+    showToast(`更新失敗: ${err.message}`, 'danger');
   } finally {
     hideLoading();
   }
