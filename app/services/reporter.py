@@ -1,5 +1,6 @@
 import io
 import datetime
+import csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -116,6 +117,70 @@ def generate_monthly_report_excel(project, month: str, results_summary: list[dic
         ws2.column_dimensions[get_column_letter(col_idx)].width = width
 
     # Save to bytes
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def generate_monthly_report_csv(project, month: str, results_summary: list[dict]) -> bytes:
+    """Generate a UTF-8 BOM CSV report (Excel-compatible)."""
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, lineterminator="\r\n")
+    writer.writerow(["プロジェクト名", getattr(project, "name", "")])
+    writer.writerow(["支店", getattr(project, "branch", "")])
+    writer.writerow(["工種", getattr(project, "work_type", "")])
+    writer.writerow(["対象月", month])
+    writer.writerow(["レポート作成日", datetime.date.today().strftime("%Y-%m-%d")])
+    writer.writerow([])
+    writer.writerow(["カテゴリ", "品目", "数量", "単位", "排出係数 (kg-CO2/unit)", "CO2排出量 (kg-CO2)"])
+    for r in results_summary:
+        writer.writerow([
+            r.get("category", ""),
+            r.get("item_name", ""),
+            r.get("quantity", 0),
+            r.get("unit", ""),
+            r.get("factor_value", 0),
+            round(r.get("co2_kg", 0), 3),
+        ])
+    total = sum(r.get("co2_kg", 0) for r in results_summary)
+    writer.writerow(["合計", "", "", "", "", round(total, 3)])
+    return ("\ufeff" + buffer.getvalue()).encode("utf-8")
+
+
+def generate_activity_import_template() -> bytes:
+    """Generate an Excel template for bulk activity import."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "活動量"
+    headers = ["project_id", "target_month", "category", "item_name", "quantity", "unit", "source_file", "note"]
+    for col, h in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
+        cell.font = Font(bold=True, color="FFFFFF")
+    examples = [
+        ["<プロジェクトID>", "2026-08", "fuel", "軽油", 500.0, "L", "給油伝票-202608-001", "現場タンク給油"],
+        ["<プロジェクトID>", "2026-08", "power", "電力", 1200.0, "kWh", "電力検針票", ""],
+        ["<プロジェクトID>", "2026-08", "material", "生コン", 12.5, "t", "納品書", ""],
+        ["<プロジェクトID>", "2026-08", "transport", "一般輸送", 320.0, "t-km", "運送依頼書", ""],
+    ]
+    for row in examples:
+        ws.append(row)
+    for col_idx, width in enumerate([22, 12, 14, 22, 12, 10, 26, 18], start=1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+    ws2 = wb.create_sheet(title="カテゴリ一覧")
+    ws2.append(["カテゴリ", "説明"])
+    for cat, desc in [
+        ("fuel", "燃料 (軽油・A重油・ガソリン等)"),
+        ("power", "電力 (kWh)"),
+        ("material", "材料 (t/kg)"),
+        ("transport", "輸送 (t-km)"),
+        ("machine", "建機稼働"),
+        ("ship", "船舶稼働"),
+        ("waste", "廃棄物"),
+    ]:
+        ws2.append([cat, desc])
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)

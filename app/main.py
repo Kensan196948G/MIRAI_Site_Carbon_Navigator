@@ -7,7 +7,19 @@ import os
 
 from .database import create_tables
 from . import models  # noqa: F401 — registers ORM models with Base.metadata
-from .routers import projects, factors, activities, emissions, reports
+import os
+
+from .routers import (
+    actions,
+    activities,
+    audit,
+    auth,
+    emissions,
+    factors,
+    projects,
+    reports,
+    users,
+)
 
 
 @asynccontextmanager
@@ -23,21 +35,31 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware
+# CORS middleware — wildcard origin is not allowed with credentials, so make
+# the origin list explicit and configurable via MIRAI_CORS_ORIGINS.
+allowed_origins = [
+    o.strip()
+    for o in os.getenv("MIRAI_CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000").split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers
+app.include_router(auth.router)
+app.include_router(users.router)
 app.include_router(projects.router)
 app.include_router(factors.router)
 app.include_router(activities.router)
 app.include_router(emissions.router)
 app.include_router(reports.router)
+app.include_router(actions.router)
+app.include_router(audit.router)
 
 
 # Serve static frontend files

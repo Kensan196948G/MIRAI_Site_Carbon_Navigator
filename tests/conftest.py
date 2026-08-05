@@ -15,6 +15,8 @@ from starlette.testclient import TestClient
 
 from app.main import app as fastapi_app
 from app.database import Base, get_db
+from app.models import User
+from app.security import hash_password
 import app.models  # noqa: F401 — ensures all ORM models are registered with Base.metadata
 
 
@@ -22,10 +24,9 @@ import app.models  # noqa: F401 — ensures all ORM models are registered with B
 # Test database setup
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="function")
-def client():
+def _make_client(role: str):
     """
-    Create a fresh in-memory SQLite database and a TestClient for each test.
+    Create a fresh in-memory SQLite database and an authenticated TestClient.
     Overrides the get_db dependency so the app uses the test DB.
 
     StaticPool is required so that all sessions (including those created
@@ -42,6 +43,28 @@ def client():
     # Create all tables in the shared in-memory connection
     Base.metadata.create_all(bind=engine)
 
+    # Seed default users so role-protected endpoints can be exercised.
+    session = TestingSessionLocal()
+    for username, display_name, user_role in [
+        ("admin", "管理者", "admin"),
+        ("reviewer", "レビュアー", "reviewer"),
+        ("site", "現場担当", "site"),
+        ("viewer", "閲覧者", "viewer"),
+    ]:
+        session.add(
+            User(
+                user_id=f"user-{username}",
+                username=username,
+                display_name=display_name,
+                password_hash=hash_password(f"{username}123"),
+                role=user_role,
+                is_active=True,
+                created_at=datetime.datetime.now(datetime.timezone.utc),
+            )
+        )
+    session.commit()
+    session.close()
+
     def override_get_db():
         db = TestingSessionLocal()
         try:
@@ -52,11 +75,33 @@ def client():
     fastapi_app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(fastapi_app) as test_client:
+        login_resp = test_client.post(
+            "/api/auth/login",
+            json={"username": role, "password": f"{role}123"},
+        )
+        assert login_resp.status_code == 200, login_resp.text
+        token = login_resp.json()["access_token"]
+        test_client.headers.update({"Authorization": f"Bearer {token}"})
         yield test_client
 
     # Cleanup
     fastapi_app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(scope="function")
+def client():
+    yield from _make_client("admin")
+
+
+@pytest.fixture(scope="function")
+def viewer_client():
+    yield from _make_client("viewer")
+
+
+@pytest.fixture(scope="function")
+def site_client():
+    yield from _make_client("site")
 
 
 # ---------------------------------------------------------------------------

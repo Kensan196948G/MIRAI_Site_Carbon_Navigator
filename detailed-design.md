@@ -18,6 +18,16 @@ flowchart LR
 
 ## 2. データモデル
 
+### users
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| user_id | string | ユーザーID |
+| username | string | ログインID（一意） |
+| password_hash | string | PBKDF2-SHA256ハッシュ |
+| role | string | admin / reviewer / site / viewer |
+| is_active | boolean | 有効/無効 |
+
 ### emission_factors
 
 | カラム | 型 | 説明 |
@@ -29,6 +39,8 @@ flowchart LR
 | factor_value | number | 排出係数 |
 | effective_from | date | 適用開始日 |
 | source | string | 出典 |
+| created_by | string | 登録者 |
+| updated_at / updated_by | datetime/string | 更新者・更新日時 |
 
 ### activity_data
 
@@ -43,6 +55,8 @@ flowchart LR
 | unit | string | 単位 |
 | source_file | string | 元ファイル |
 | approved | boolean | 承認状態 |
+| approved_by / approved_at | string/datetime | 承認者・承認日時 |
+| note | string | 備考 |
 
 ### emission_results
 
@@ -53,6 +67,31 @@ flowchart LR
 | factor_id | string | 係数ID |
 | co2_kg | number | CO2排出量kg |
 | calculated_at | datetime | 算定日時 |
+| factor_value | number | 適用した係数値（スナップショット） |
+| factor_source | string | 係数出典（スナップショット） |
+| factor_effective_from | date | 係数適用開始日（スナップショット） |
+
+### reduction_actions
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| action_id | string | アクションID |
+| project_id / target_month | string | 工事・対象月 |
+| category | string | カテゴリ |
+| suggestion | text | 削減提案内容 |
+| status | string | planned / implemented / declined |
+| estimated_reduction_kg | number | 想定削減量 |
+| actual_reduction_kg | number | 実績削減量 |
+
+### audit_logs
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| log_id | string | ログID |
+| actor | string | 操作者 |
+| action | string | create / update / delete / approve / login |
+| resource_type / resource_id | string | 対象リソース |
+| detail | text | 詳細 |
 
 ## 3. 入力検証
 
@@ -63,6 +102,9 @@ flowchart LR
 | 単位チェック | 排出係数マスタに存在する単位か |
 | 重複チェック | 同一工事・月・品目の二重登録 |
 | しきい値チェック | 前月比200%以上など異常値を警告 |
+| 月形式チェック | target_month が YYYY-MM 形式であること |
+| 数量チェック | 数量が正の数であること |
+| 単位チェック | 排出係数マスタに存在する単位か（未設定は未算定として警告） |
 
 ## 4. 削減ナビロジック
 
@@ -92,6 +134,8 @@ flowchart TD
 | EnvironmentReviewer | 承認、レポート確認 |
 | SiteInput | 担当工事の活動量登録 |
 | Viewer | 閲覧のみ |
+
+実装では JWT（HMAC-SHA256）トークンによる認証と、エンドポイント単位のロールガードを適用する。
 
 ## 6. テスト観点
 

@@ -10,6 +10,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import SessionLocal, create_tables
 from app import crud, schemas
+from app.security import hash_password
+from app.models import User
 
 
 def seed():
@@ -33,6 +35,10 @@ def seed():
         # Transport
         {"category": "transport", "item_name": "一般輸送", "unit": "t-km", "factor_value": 0.172, "source": "環境省 排出係数 (トラック輸送)"},
         {"category": "transport", "item_name": "船舶輸送", "unit": "t-km", "factor_value": 0.039, "source": "環境省 排出係数 (内航海運)"},
+        {"category": "machine", "item_name": "油圧ショベル", "unit": "h", "factor_value": 18.5, "source": "建機メーカーカタログ値 (目安)"},
+        {"category": "machine", "item_name": "クローラクレーン", "unit": "h", "factor_value": 32.0, "source": "建機メーカーカタログ値 (目安)"},
+        {"category": "ship", "item_name": "作業船", "unit": "h", "factor_value": 120.0, "source": "内航船排出原単位 (目安)"},
+        {"category": "waste", "item_name": "建設廃棄物", "unit": "t", "factor_value": 45.0, "source": "廃棄物処理原単位 (目安)"},
     ]
 
     added = 0
@@ -57,8 +63,35 @@ def seed():
         crud.create_emission_factor(db, factor_create)
         added += 1
 
+    # Default users (development credentials — rotate before production)
+    default_users = [
+        ("admin", "CarbonAdmin", "admin", "admin123"),
+        ("reviewer", "環境レビュアー", "reviewer", "reviewer123"),
+        ("site", "現場入力担当", "site", "site123"),
+        ("viewer", "閲覧ユーザー", "viewer", "viewer123"),
+    ]
+    users_added = 0
+    for username, display_name, role, password in default_users:
+        if crud.get_user_by_username(db, username):
+            continue
+        db_user = User(
+            user_id=str(__import__("uuid").uuid4()),
+            username=username,
+            display_name=display_name,
+            password_hash=hash_password(password),
+            role=role,
+            is_active=True,
+            created_at=datetime.datetime.now(datetime.timezone.utc),
+        )
+        db.add(db_user)
+        users_added += 1
+    db.commit()
+
     db.close()
-    print(f"Seed complete: {added} factors added, {skipped} skipped (already exist)")
+    print(
+        f"Seed complete: {added} factors added, {skipped} skipped "
+        f"(already exist), {users_added} users added"
+    )
 
 
 if __name__ == "__main__":

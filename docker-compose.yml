@@ -7,4 +7,5 @@ services:
       - ./data:/app/data
     environment:
       - DATABASE_URL=sqlite:///./data/carbon_navigator.db
+      - MIRAI_CORS_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
     restart: unless-stopped

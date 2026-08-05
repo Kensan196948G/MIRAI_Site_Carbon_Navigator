@@ -346,6 +346,26 @@ tr.approved-row td {
   color: var(--primary-dark);
 }
 
+/* ===== Icon-only action buttons ===== */
+.btn-icon {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon .bi {
+  margin: 0 !important;
+}
+
+/* ===== Badge variants ===== */
+.badge-fuel {
+  background-color: var(--fuel-color);
+  color: #fff;
+}
+
 /* ===== Scrollable table wrapper ===== */
 .table-responsive {
   border-radius: 8px;
