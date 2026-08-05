@@ -224,6 +224,13 @@
         </div>
       </div>
     </div>
+
+    <div class="card mt-4">
+      <div class="card-header"><i class="bi bi-calendar-check me-2" aria-hidden="true"></i>月次スケジュール（当月）</div>
+      <div class="card-body p-2" id="monthScheduleList">
+        <p class="text-muted small mb-0">読み込み中...</p>
+      </div>
+    </div>
   </section>
 
   <!-- ============ Projects ============ -->
@@ -233,9 +240,18 @@
         <h2 id="projects-heading"><i class="bi bi-building me-2" aria-hidden="true"></i>工事一覧</h2>
         <p>工事を登録・編集します。行クリックで選択工事を設定できます。</p>
       </div>
-      <button class="btn btn-primary" onclick="openProjectModal()" type="button" data-role-min="site">
-        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>新規登録
-      </button>
+      <span class="d-flex gap-2 flex-wrap" data-role-min="site">
+        <button class="btn btn-outline-primary" onclick="downloadProjectTemplate()" type="button">
+          <i class="bi bi-download me-1" aria-hidden="true"></i>取込テンプレート
+        </button>
+        <input type="file" id="projectImportFile" class="form-control form-control-sm" accept=".xlsx,.xlsm" style="max-width:200px">
+        <button class="btn btn-outline-success" onclick="importProjects()" type="button">
+          <i class="bi bi-upload me-1" aria-hidden="true"></i>一括取込
+        </button>
+        <button class="btn btn-primary" onclick="openProjectModal()" type="button">
+          <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>新規登録
+        </button>
+      </span>
     </div>
 
     <div class="card">
@@ -445,6 +461,7 @@
     <div id="missingFactorsAlert" class="alert alert-warning d-none" role="alert"></div>
     <div id="anomalyAlert" class="alert alert-danger d-none" role="alert"></div>
     <div id="calcLockAlert" class="alert alert-secondary d-none" role="alert"></div>
+    <div id="missingMonthsAlert" class="alert alert-info d-none" role="alert"></div>
 
     <div id="calcResultsSection" style="display:none;">
       <div class="card mb-4" id="benchmarkCard" style="display:none;">
@@ -464,6 +481,31 @@
         <div class="col-4"><div class="stat-card scope1"><div class="stat-value" id="statScope1">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">Scope1 直接排出</div></div></div>
         <div class="col-4"><div class="stat-card scope2"><div class="stat-value" id="statScope2">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">Scope2 電力</div></div></div>
         <div class="col-4"><div class="stat-card scope3"><div class="stat-value" id="statScope3">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">Scope3 間接排出</div></div></div>
+      </div>
+
+      <div class="row g-3 mb-4" aria-label="比較サマリー">
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center"><div class="small text-muted">前月比</div><div class="fs-4 fw-bold" id="cmpMom">-</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center"><div class="small text-muted">前年同月比</div><div class="fs-4 fw-bold" id="cmpYoy">-</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center"><div class="small text-muted">前月排出量</div><div class="fs-5 fw-bold" id="cmpPrev">-</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center"><div class="small text-muted">前年同月排出量</div><div class="fs-5 fw-bold" id="cmpPrevYear">-</div></div></div></div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-sliders me-2" aria-hidden="true"></i>削減シナリオシミュレーション</div>
+        <div class="card-body">
+          <p class="text-muted small">各カテゴリの削減率(%)を入力して「試算」を押すと、削減量とScope別への影響を計算します。</p>
+          <div class="d-flex gap-2 flex-wrap mb-2" id="scenarioInputs">
+            <div><label class="form-label small mb-0">燃料</label><input type="number" id="scFuel" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div><label class="form-label small mb-0">電力</label><input type="number" id="scPower" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div><label class="form-label small mb-0">材料</label><input type="number" id="scMaterial" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div><label class="form-label small mb-0">輸送</label><input type="number" id="scTransport" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div><label class="form-label small mb-0">建機</label><input type="number" id="scMachine" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div><label class="form-label small mb-0">船舶</label><input type="number" id="scShip" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div><label class="form-label small mb-0">廃棄物</label><input type="number" id="scWaste" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div class="align-self-end"><button class="btn btn-sm btn-primary" onclick="runScenario()" type="button"><i class="bi bi-calculator me-1" aria-hidden="true"></i>試算</button></div>
+          </div>
+          <div id="scenarioResult" class="small"></div>
+        </div>
       </div>
 
       <div class="row g-4 mb-4">
@@ -1224,6 +1266,9 @@
       <div class="modal-body">
         <input type="hidden" id="commentActivityId">
         <div id="commentList" class="mb-3"></div>
+        <hr>
+        <div class="small fw-bold mb-2">変更履歴（CO2影響あり）</div>
+        <div id="activityHistoryList" class="mb-3"></div>
         <div class="d-flex gap-2" data-role-min="site">
           <input type="text" id="commentInput" class="form-control" placeholder="コメントを入力（例: 数量の根拠は伝票No.123）" maxlength="500">
           <button class="btn btn-primary" onclick="addComment()" type="button">

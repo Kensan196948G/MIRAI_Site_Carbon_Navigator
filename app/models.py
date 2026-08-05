@@ -23,6 +23,7 @@ class Project(Base):
     start_date = Column(Date)
     end_date = Column(Date)
     description = Column(String, nullable=True)
+    close_day = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True))
     created_by = Column(String)
     updated_at = Column(DateTime(timezone=True), nullable=True)
@@ -204,6 +205,20 @@ class ActivityComment(Base):
     created_at = Column(DateTime(timezone=True), nullable=False)
 
     activity = relationship("ActivityData")
+
+
+class ActivityChangeLog(Base):
+    __tablename__ = "activity_change_logs"
+
+    change_id = Column(String, primary_key=True)
+    activity_id = Column(String, ForeignKey("activity_data.activity_id"), nullable=False)
+    actor = Column(String, nullable=False)
+    field = Column(String, nullable=False)
+    old_value = Column(String, nullable=True)
+    new_value = Column(String, nullable=True)
+    co2_kg_before = Column(Float, nullable=True)
+    co2_kg_after = Column(Float, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
 
 
 class Branch(Base):

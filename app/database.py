@@ -62,6 +62,8 @@ def _ensure_columns():
     if "projects" in tables:
         columns = {c["name"] for c in inspector.get_columns("projects")}
         with engine.begin() as conn:
+            if "close_day" not in columns:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN close_day INTEGER"))
             if "updated_at" not in columns:
                 conn.execute(text(f"ALTER TABLE projects ADD COLUMN updated_at {datetime_type}"))
             if "updated_by" not in columns:

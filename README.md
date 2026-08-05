@@ -53,7 +53,7 @@ frontend/
 └── static/
     ├── css/style.css
     └── js/app.js
-tests/                   # pytest (136件)
+tests/                   # pytest (146件)
 ```
 
 ## 🚀 クイックスタート
@@ -123,6 +123,14 @@ docker-compose up --build
 | F-29 | 支店マスタ + 支店別権限（siteは自支店のみ操作） | ✅ 実装済み |
 | F-30 | テレマティクス連携（シミュレータ/コマツAPIアダプタ） | ✅ 実装済み |
 | F-31 | 発注者ポータル（clientロール・工事別アクセス割当・閲覧のみ） | ✅ 実装済み |
+| F-32 | 工事マスタ一括取込（Excelテンプレート + 取込API） | ✅ 実装済み |
+| F-33 | 活動量の単位自動換算（kL→L 等を登録時に正規化） | ✅ 実装済み |
+| F-34 | 前月比・前年比カード + データ欠損月の警告 | ✅ 実装済み |
+| F-35 | 活動量の変更履歴（CO2影響の差分表示） | ✅ 実装済み |
+| F-36 | 月次スケジュール（締め日・残日数・未承認件数の一覧） | ✅ 実装済み |
+| F-37 | Zスコアによる統計的異常値検知 | ✅ 実装済み |
+| F-38 | 削減シナリオシミュレーション（Scope別影響試算） | ✅ 実装済み |
+| F-39 | 翌月排出量予測（線形トレンド） | ✅ 実装済み |
 
 ## 🧮 算定方式
 
@@ -197,6 +205,14 @@ Scope別集計は算定画面のカード、Excel/CSV/PDFレポートの「Scope
 | GET | /api/export/full | 全量バックアップ(ZIP) | admin |
 | GET | /api/reports/card/{project_id} | 工事カルテPDF | viewer〜（clientは割当工事のみ） |
 | GET/PUT | /api/users/{id}/projects | 発注者への工事アクセス割当 | admin |
+| GET | /api/projects/template | 工事取込テンプレート | site〜 |
+| POST | /api/projects/import | 工事一括取込 | site〜 |
+| GET | /api/emissions/comparison?project_id=&target_month= | 前月比/前年比 | viewer〜 |
+| GET | /api/emissions/missing-months?project_id= | 欠損月一覧 | viewer〜 |
+| GET | /api/emissions/forecast?project_id= | 翌月予測 | viewer〜 |
+| POST | /api/emissions/scenario-simulate | 削減シナリオ試算 | viewer〜 |
+| GET | /api/emissions/month-status?target_month= | 月次スケジュール | viewer〜 |
+| GET | /api/activities/{id}/history | 活動量変更履歴 | viewer〜 |
 | GET/POST/PUT/DELETE | /api/feedbacks | 現場フィードバック | 閲覧: viewer〜 / 編集: site〜 / 削除: reviewer〜 |
 | GET | /api/sbti/progress | SBTi進捗 | viewer〜 |
 | GET/POST/PUT/DELETE | /api/sbti/targets | SBTi目標管理 | 管理: admin / 閲覧: viewer〜 |
@@ -235,7 +251,7 @@ PostgreSQL は `docker-compose.yml` の `db` サービスで自動起動し、ap
 ```bash
 pip install -r requirements.txt pytest httpx
 pytest tests/ -v
-# → 136 passed
+# → 146 passed
 ```
 
 ## 🗺️ ロードマップ
@@ -263,8 +279,12 @@ gantt
   締め・コピー・督促・通知     :done, e3, after e2, 2d
   単位換算・供給者係数・カルテ :done, e4, after e3, 2d
   支店権限・テレマティクス・発注者ポータル :done, e5, after e4, 3d
-  section Phase 6 (次フェーズ)
-  2現場実地PoC                :e6, 2026-09-01, 30d
+  section Phase 6 (完了)
+  工事取込・単位正規化        :done, f1, 2026-08-05, 2d
+  比較・欠損月・変更履歴      :done, f2, after f1, 2d
+  月次スケジュール・Zスコア・シナリオ・予測 :done, f3, after f2, 3d
+  section Phase 7 (次フェーズ)
+  2現場実地PoC                :g1, 2026-09-01, 30d
 ```
 
 ## 📄 関連ドキュメント

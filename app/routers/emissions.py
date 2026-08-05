@@ -5,7 +5,14 @@ from .. import crud, schemas
 from ..database import get_db
 from ..services.calculator import calculate_all_for_month
 from ..services.reduction import get_reduction_suggestions
-from ..services.analysis import detect_anomalies, get_benchmark
+from ..services.analysis import (
+    detect_anomalies,
+    forecast_next_month,
+    get_benchmark,
+    get_comparison,
+    get_missing_months,
+    simulate_scenario,
+)
 from ..services.scope import scope_summary_from_results
 from ..security import get_current_user
 
@@ -239,3 +246,66 @@ def get_reminders(
     user=Depends(get_current_user),
 ):
     return crud.get_monthly_reminders(db, target_month)
+
+
+@router.get("/comparison", response_model=schemas.ComparisonItem)
+def get_comparison_endpoint(
+    project_id: str,
+    target_month: str,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    _ensure_project_access(user, db, project_id)
+    return get_comparison(db, project_id, target_month)
+
+
+@router.get("/missing-months", response_model=list[schemas.MissingMonthItem])
+def get_missing_months_endpoint(
+    project_id: str,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    _ensure_project_access(user, db, project_id)
+    return get_missing_months(db, project_id)
+
+
+@router.get("/forecast", response_model=schemas.ForecastItem)
+def get_forecast_endpoint(
+    project_id: str,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    _ensure_project_access(user, db, project_id)
+    return forecast_next_month(db, project_id)
+
+
+@router.post("/scenario-simulate", response_model=schemas.ScenarioResult)
+def simulate_scenario_endpoint(
+    body: schemas.ScenarioRequest,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    _ensure_project_access(user, db, body.project_id)
+    if not crud.get_project(db, body.project_id):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return simulate_scenario(
+        db,
+        body.project_id,
+        body.target_month,
+        body.adjustments.model_dump(),
+    )
+
+
+@router.get("/month-status", response_model=list[schemas.MonthStatusItem])
+def get_month_status_endpoint(
+    target_month: str,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    statuses = crud.get_month_status(db, target_month)
+    if user.role == "client":
+        allowed = set(crud.accessible_project_ids(db, user))
+        statuses = [s for s in statuses if s["project_id"] in allowed]
+    elif user.role == "site" and user.branch:
+        statuses = [s for s in statuses if s["branch"] == user.branch]
+    return statuses

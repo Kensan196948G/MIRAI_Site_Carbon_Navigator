@@ -455,8 +455,48 @@ async function loadDashboard() {
     loadDashboardSbti();
     loadDemoStatus();
     loadReminders();
+    loadMonthSchedule();
   } catch (err) {
     showToast(`ダッシュボード取得失敗: ${err.message}`, 'danger');
+  }
+}
+
+async function loadMonthSchedule() {
+  const list = document.getElementById('monthScheduleList');
+  if (!list) return;
+  try {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const statuses = await fetchJSON(`/api/emissions/month-status?target_month=${month}`);
+    while (list.firstChild) list.removeChild(list.firstChild);
+    if (!statuses || !statuses.length) {
+      const p = document.createElement('p');
+      p.className = 'text-muted small mb-0';
+      p.textContent = '対象工事がありません';
+      list.appendChild(p);
+      return;
+    }
+    for (const s of statuses.slice(0, 12)) {
+      const row = document.createElement('div');
+      row.className = 'd-flex justify-content-between align-items-center border-bottom py-1 small';
+      const left = document.createElement('span');
+      left.textContent = `${s.project_name}（${s.branch || '-'}）`;
+      const right = document.createElement('span');
+      const parts = [];
+      parts.push(s.is_closed ? '🔒 締め済み' : `締め日 ${s.close_day}日 まで${s.days_remaining}日`);
+      parts.push(s.activity_count ? `登録${s.activity_count}件` : '未登録');
+      if (s.approved_count < s.activity_count) parts.push(`未承認 ${s.activity_count - s.approved_count}件`);
+      right.textContent = parts.join(' / ');
+      right.className = s.is_closed ? 'text-secondary' : (s.activity_count === 0 || s.approved_count < s.activity_count) ? 'text-danger' : 'text-success';
+      row.appendChild(left);
+      row.appendChild(right);
+      list.appendChild(row);
+    }
+  } catch (_) {
+    const p = document.createElement('p');
+    p.className = 'text-muted small mb-0';
+    p.textContent = '月次スケジュールを取得できませんでした';
+    list.appendChild(p);
   }
 }
 
@@ -725,6 +765,49 @@ async function downloadProjectCard(project) {
     showToast('工事カルテをダウンロードしました', 'success');
   } catch (err) {
     showToast(`ダウンロード失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function downloadProjectTemplate() {
+  showLoading();
+  try {
+    await downloadFile('/api/projects/template', 'project_import_template.xlsx');
+    showToast('取込テンプレートをダウンロードしました', 'success');
+  } catch (err) {
+    showToast(`ダウンロード失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function importProjects() {
+  const input = document.getElementById('projectImportFile');
+  if (!input.files || !input.files.length) { showToast('取込ファイルを選択してください', 'warning'); return; }
+  const formData = new FormData();
+  formData.append('file', input.files[0]);
+  const auth = getAuth();
+  showLoading();
+  try {
+    const res = await fetch(API_BASE + '/api/projects/import', {
+      method: 'POST',
+      headers: auth && auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try { msg = (await res.json()).detail || msg; } catch (_) {}
+      throw new Error(msg);
+    }
+    const data = await res.json();
+    showToast(`工事取込完了: 成功${data.imported}件 / スキップ${data.skipped}件`, data.errors && data.errors.length ? 'warning' : 'success');
+    if (data.errors && data.errors.length) console.warn(data.errors);
+    input.value = '';
+    loadProjects();
+    loadDashboard();
+  } catch (err) {
+    showToast(`取込失敗: ${err.message}`, 'danger');
   } finally {
     hideLoading();
   }
@@ -1167,7 +1250,10 @@ async function loadComments() {
   const list = document.getElementById('commentList');
   if (!activityId || !list) return;
   try {
-    const comments = await fetchJSON(`/api/activities/${activityId}/comments`);
+    const [comments, history] = await Promise.all([
+      fetchJSON(`/api/activities/${activityId}/comments`),
+      fetchJSON(`/api/activities/${activityId}/history`),
+    ]);
     while (list.firstChild) list.removeChild(list.firstChild);
     if (!comments || !comments.length) {
       const p = document.createElement('p');
@@ -1188,6 +1274,25 @@ async function loadComments() {
       div.appendChild(meta);
       div.appendChild(body);
       list.appendChild(div);
+    }
+    const historyList = document.getElementById('activityHistoryList');
+    while (historyList.firstChild) historyList.removeChild(historyList.firstChild);
+    if (!history || !history.length) {
+      const p = document.createElement('p');
+      p.className = 'text-muted small';
+      p.textContent = '変更履歴はまだありません。';
+      historyList.appendChild(p);
+    } else {
+      const fieldLabels = { quantity: '数量', unit: '単位', note: '備考', supplier: '供給者', source_file: '元ファイル', category: 'カテゴリ', item_name: '品目' };
+      for (const h of history.slice(0, 10)) {
+        const div = document.createElement('div');
+        div.className = 'border rounded p-2 mb-2 small';
+        const impact = (h.co2_kg_before != null && h.co2_kg_after != null)
+          ? ` / CO2影響: ${formatNumber(h.co2_kg_before)}kg → ${formatNumber(h.co2_kg_after)}kg`
+          : '';
+        div.textContent = `${h.actor} / ${new Date(h.created_at).toLocaleString('ja-JP')}: ${fieldLabels[h.field] || h.field} ${h.old_value ?? '-'} → ${h.new_value ?? '-'}${impact}`;
+        historyList.appendChild(div);
+      }
     }
   } catch (err) {
     showToast(`コメント取得失敗: ${err.message}`, 'danger');
@@ -1282,6 +1387,7 @@ async function executeCalculation() {
     renderCalculationResults(result, summary);
     renderEmissionChart(summary);
     await loadScopeSummary(projectId, month);
+    await Promise.all([loadComparison(projectId, month), loadMissingMonths(projectId)]);
     await loadMissingFactors(projectId, month);
     await Promise.all([loadBenchmark(projectId, month), loadAnomalies(projectId, month)]);
 
@@ -1298,6 +1404,76 @@ async function executeCalculation() {
     refreshUnreadBadge();
   } catch (err) {
     showToast(`算定失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function loadComparison(projectId, month) {
+  try {
+    const params = new URLSearchParams({ project_id: projectId, target_month: month });
+    const data = await fetchJSON(`/api/emissions/comparison?${params}`);
+    const mom = data.mom_ratio == null ? '-' : `${(data.mom_ratio * 100).toFixed(0)}%`;
+    const yoy = data.yoy_ratio == null ? '-' : `${(data.yoy_ratio * 100).toFixed(0)}%`;
+    document.getElementById('cmpMom').textContent = mom;
+    document.getElementById('cmpYoy').textContent = yoy;
+    document.getElementById('cmpPrev').textContent = data.previous_month_kg == null ? '-' : `${formatNumber(data.previous_month_t, 3)} t`;
+    document.getElementById('cmpPrevYear').textContent = data.previous_year_kg == null ? '-' : `${formatNumber(data.previous_year_t, 3)} t`;
+    document.getElementById('cmpMom').className = data.mom_ratio != null && data.mom_ratio > 1 ? 'fs-4 fw-bold text-danger' : 'fs-4 fw-bold text-success';
+    document.getElementById('cmpYoy').className = data.yoy_ratio != null && data.yoy_ratio > 1 ? 'fs-4 fw-bold text-danger' : 'fs-4 fw-bold text-success';
+  } catch (_) {
+    document.getElementById('cmpMom').textContent = '-';
+    document.getElementById('cmpYoy').textContent = '-';
+    document.getElementById('cmpPrev').textContent = '-';
+    document.getElementById('cmpPrevYear').textContent = '-';
+  }
+}
+
+async function loadMissingMonths(projectId) {
+  const alertEl = document.getElementById('missingMonthsAlert');
+  if (!alertEl) return;
+  try {
+    const missing = await fetchJSON(`/api/emissions/missing-months?project_id=${projectId}`);
+    const issues = missing.filter(m => m.reason === 'no_data');
+    if (issues.length) {
+      alertEl.textContent = `ℹ️ データ未登録の月が ${issues.length} ヶ月あります: ${issues.slice(0, 6).map(m => m.target_month).join('、')}${issues.length > 6 ? ' ほか' : ''}`;
+      alertEl.classList.remove('d-none');
+    } else {
+      alertEl.classList.add('d-none');
+    }
+  } catch (_) {
+    alertEl.classList.add('d-none');
+  }
+}
+
+async function runScenario() {
+  const projectId = document.getElementById('calcProjectSelect').value;
+  const month = document.getElementById('calcMonthPicker').value;
+  if (!projectId || !month) { showToast('工事と対象月を選択してください', 'warning'); return; }
+  const adjustments = {
+    fuel: parseFloat(document.getElementById('scFuel').value || 0),
+    power: parseFloat(document.getElementById('scPower').value || 0),
+    material: parseFloat(document.getElementById('scMaterial').value || 0),
+    transport: parseFloat(document.getElementById('scTransport').value || 0),
+    machine: parseFloat(document.getElementById('scMachine').value || 0),
+    ship: parseFloat(document.getElementById('scShip').value || 0),
+    waste: parseFloat(document.getElementById('scWaste').value || 0),
+  };
+  showLoading();
+  try {
+    const data = await fetchJSON('/api/emissions/scenario-simulate', {
+      method: 'POST',
+      body: { project_id: projectId, target_month: month, adjustments },
+    });
+    const el = document.getElementById('scenarioResult');
+    const scopeLabels = { scope1: 'Scope1', scope2: 'Scope2', scope3: 'Scope3' };
+    const scopeText = Object.entries(data.scope_after || {})
+      .map(([scope, kg]) => `${scopeLabels[scope] || scope}: ${formatNumber(kg / 1000, 3)} t`)
+      .join(' / ');
+    el.textContent = `現状 ${formatNumber(data.current_total_kg / 1000, 3)} t → 試算 ${formatNumber(data.scenario_total_kg / 1000, 3)} t（削減 ${formatNumber(data.reduction_kg, 0)} kg / ${formatNumber(data.reduction_percent, 1)}%）／試算後 ${scopeText}`;
+    el.className = data.reduction_kg > 0 ? 'small text-success' : 'small';
+  } catch (err) {
+    showToast(`試算失敗: ${err.message}`, 'danger');
   } finally {
     hideLoading();
   }
@@ -1610,8 +1786,11 @@ async function loadMonthlyTrend() {
   showLoading();
   try {
     const params = new URLSearchParams({ project_id: projectId });
-    const trend = await fetchJSON(`/api/emissions/trend?${params}`);
-    renderTrendChart(trend);
+    const [trend, forecast] = await Promise.all([
+      fetchJSON(`/api/emissions/trend?${params}`),
+      fetchJSON(`/api/emissions/forecast?project_id=${projectId}`),
+    ]);
+    renderTrendChart(trend, forecast);
   } catch (err) {
     showToast(`トレンドデータ取得失敗: ${err.message}`, 'danger');
   } finally {
@@ -1619,33 +1798,45 @@ async function loadMonthlyTrend() {
   }
 }
 
-function renderTrendChart(data) {
+function renderTrendChart(data, forecast = null) {
   destroyChart('trend');
   const ctx = document.getElementById('trendChart').getContext('2d');
   const months = Array.isArray(data) ? data : (data.months || data.data || []);
   const labels = months.map(m => m.target_month || m.month || '');
   const values = months.map(m => Number((m.total_co2_t ?? m.co2_t ?? m.total ?? 0).toFixed(4)));
+  const datasets = [{
+    label: 'CO2排出量 (t-CO2)',
+    data: values,
+    borderColor: '#2d7d46',
+    backgroundColor: 'rgba(45,125,70,0.1)',
+    fill: true,
+    tension: 0.3,
+    pointBackgroundColor: '#2d7d46',
+    pointRadius: 5,
+  }];
+  if (forecast && forecast.target_month && labels.length) {
+    datasets.push({
+      label: '翌月予測',
+      data: [...labels.map(() => null), Number((forecast.forecast_total_t || 0).toFixed(4))],
+      borderColor: '#e67e22',
+      borderDash: [6, 4],
+      pointBackgroundColor: '#e67e22',
+      pointRadius: 6,
+      fill: false,
+    });
+  }
 
   charts['trend'] = new Chart(ctx, {
     type: 'line',
     data: {
-      labels,
-      datasets: [{
-        label: 'CO2排出量 (t-CO2)',
-        data: values,
-        borderColor: '#2d7d46',
-        backgroundColor: 'rgba(45,125,70,0.1)',
-        fill: true,
-        tension: 0.3,
-        pointBackgroundColor: '#2d7d46',
-        pointRadius: 5,
-      }],
+      labels: forecast && forecast.target_month ? [...labels, forecast.target_month] : labels,
+      datasets,
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: { display: true, position: 'bottom' },
         tooltip: { callbacks: { label: ctx => ` ${formatNumber(ctx.raw, 3)} t-CO2` } },
       },
       scales: {

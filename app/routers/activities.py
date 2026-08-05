@@ -218,6 +218,18 @@ def list_comments(
     return crud.list_activity_comments(db, activity_id)
 
 
+@router.get("/{activity_id}/history", response_model=list[schemas.ActivityChangeRead])
+def list_activity_history(
+    activity_id: str,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    activity = crud.get_activity(db, activity_id)
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    return crud.list_activity_changes(db, activity_id)
+
+
 @router.post("/{activity_id}/comments", response_model=schemas.ActivityCommentRead, status_code=201)
 def add_comment(
     activity_id: str,

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from . import models, schemas
 from .security import hash_password
 from .services.notify import deliver_external
+from .services.units import convert as convert_unit
 
 
 def _new_id() -> str:
@@ -251,6 +252,34 @@ def list_factor_versions(
 def create_activity_data(
     db: Session, activity: schemas.ActivityDataCreate, actor: str = "system"
 ):
+    # Normalize unit automatically when the entered unit is convertible to a
+    # factor unit (e.g. kL -> L). This keeps calculations and reports consistent.
+    if not get_latest_factor(
+        db,
+        activity.category,
+        activity.item_name,
+        activity.unit,
+        supplier=activity.supplier,
+    ):
+        for candidate in list_emission_factors(db, category=activity.category):
+            if candidate.item_name != activity.item_name:
+                continue
+            if activity.supplier and candidate.supplier != activity.supplier:
+                continue
+            try:
+                converted = convert_unit(activity.quantity, activity.unit, candidate.unit)
+                old_note = activity.note or ""
+                note = (
+                    f"{old_note}；自動換算: {activity.quantity:g}{activity.unit}"
+                    f" → {converted['converted_value']:g}{candidate.unit}"
+                ).strip("；")
+                activity.quantity = converted["converted_value"]
+                activity.unit = candidate.unit
+                activity.note = note
+                break
+            except ValueError:
+                continue
+
     # Check for duplicate (unit included)
     existing = db.query(models.ActivityData).filter(
         and_(
@@ -328,8 +357,36 @@ def update_activity(
     activity = get_activity(db, activity_id)
     if not activity:
         return None
-    for key, value in updates.model_dump(exclude_unset=True).items():
+    data = updates.model_dump(exclude_unset=True)
+    old_values = {key: getattr(activity, key) for key in data}
+    for key, value in data.items():
         setattr(activity, key, value)
+    # CO2 impact of the change (uses the latest applicable factor)
+    co2_before = None
+    co2_after = None
+    factor = get_latest_factor(
+        db, activity.category, activity.item_name, activity.unit,
+        supplier=activity.supplier,
+    )
+    if factor:
+        co2_after = activity.quantity * factor.factor_value
+        # recompute before with old quantity
+        old_quantity = old_values.get("quantity", activity.quantity)
+        co2_before = old_quantity * factor.factor_value
+    for key in data:
+        old_value = old_values.get(key)
+        if old_value == getattr(activity, key):
+            continue
+        log_change(
+            db,
+            activity_id=activity_id,
+            actor=actor,
+            field=key,
+            old_value=old_value,
+            new_value=getattr(activity, key),
+            co2_kg_before=co2_before,
+            co2_kg_after=co2_after,
+        )
     activity.updated_at = utcnow()
     activity.updated_by = actor
     # Data changed -> reset approval state so reviewers re-check
@@ -348,6 +405,50 @@ def update_activity(
         link=f"/#/activities?project={activity.project_id}&month={activity.target_month}",
     )
     return activity
+
+
+def log_change(
+    db: Session,
+    activity_id: str,
+    actor: str,
+    field: str,
+    old_value,
+    new_value,
+    co2_kg_before: Optional[float] = None,
+    co2_kg_after: Optional[float] = None,
+) -> models.ActivityChangeLog:
+    def _fmt(value):
+        if value is None:
+            return None
+        if isinstance(value, float):
+            return f"{value:.6g}"
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+        return str(value)
+
+    change = models.ActivityChangeLog(
+        change_id=_new_id(),
+        activity_id=activity_id,
+        actor=actor,
+        field=field,
+        old_value=_fmt(old_value),
+        new_value=_fmt(new_value),
+        co2_kg_before=co2_kg_before,
+        co2_kg_after=co2_kg_after,
+        created_at=utcnow(),
+    )
+    db.add(change)
+    db.commit()
+    return change
+
+
+def list_activity_changes(db: Session, activity_id: str) -> list[models.ActivityChangeLog]:
+    return (
+        db.query(models.ActivityChangeLog)
+        .filter(models.ActivityChangeLog.activity_id == activity_id)
+        .order_by(models.ActivityChangeLog.created_at.desc())
+        .all()
+    )
 
 
 def delete_activity(db: Session, activity_id: str, actor: str) -> bool:
@@ -1102,6 +1203,35 @@ def get_monthly_reminders(db: Session, target_month: str) -> list[dict]:
                     "activity_count": len(unapproved),
                 })
     return reminders
+
+
+def get_month_status(db: Session, target_month: str) -> list[dict]:
+    """Per-project monthly status with close deadline (PoC schedule view)."""
+    items = []
+    for project in list_projects(db):
+        activities = list_activity_data(
+            db, project_id=project.project_id, target_month=target_month
+        )
+        closed = is_month_closed(db, project.project_id, target_month)
+        close_day = project.close_day or 25
+        year, month = (int(x) for x in target_month.split("-"))
+        from datetime import date
+        import calendar
+        last_day = calendar.monthrange(year, month)[1]
+        close_date = date(year, month, min(close_day, last_day))
+        today = date.today()
+        days_remaining = (close_date - today).days
+        items.append({
+            "project_id": project.project_id,
+            "project_name": project.name,
+            "branch": project.branch,
+            "close_day": close_day,
+            "activity_count": len(activities),
+            "approved_count": len([a for a in activities if a.approved]),
+            "is_closed": closed,
+            "days_remaining": days_remaining,
+        })
+    return items
 
 
 def list_reduction_actions(

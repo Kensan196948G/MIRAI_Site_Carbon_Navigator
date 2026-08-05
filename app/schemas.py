@@ -11,6 +11,7 @@ class ProjectCreate(BaseModel):
     start_date: datetime.date
     end_date: datetime.date
     description: Optional[str] = None
+    close_day: Optional[int] = Field(default=None, ge=1, le=28)
     created_by: str = "system"
 
 
@@ -21,6 +22,7 @@ class ProjectUpdate(BaseModel):
     start_date: Optional[datetime.date] = None
     end_date: Optional[datetime.date] = None
     description: Optional[str] = None
+    close_day: Optional[int] = Field(default=None, ge=1, le=28)
 
 
 class ProjectRead(ProjectCreate):
@@ -463,4 +465,87 @@ class UserProjectAccessRead(BaseModel):
     user_id: str
     project_id: str
     created_by: str
+    created_at: datetime.datetime
+
+
+class ProjectImportResult(BaseModel):
+    imported: int
+    skipped: int
+    errors: list[str]
+
+
+class ComparisonItem(BaseModel):
+    current_total_kg: float
+    current_total_t: float
+    previous_month_kg: Optional[float] = None
+    previous_month_t: Optional[float] = None
+    mom_ratio: Optional[float] = None
+    previous_year_kg: Optional[float] = None
+    previous_year_t: Optional[float] = None
+    yoy_ratio: Optional[float] = None
+
+
+class MissingMonthItem(BaseModel):
+    target_month: str
+    activity_count: int
+    reason: str
+
+
+class MonthStatusItem(BaseModel):
+    project_id: str
+    project_name: str
+    branch: Optional[str] = None
+    close_day: Optional[int] = None
+    activity_count: int
+    approved_count: int
+    is_closed: bool
+    days_remaining: Optional[int] = None
+
+
+class ScenarioAdjustment(BaseModel):
+    fuel: Optional[float] = 0.0
+    power: Optional[float] = 0.0
+    material: Optional[float] = 0.0
+    transport: Optional[float] = 0.0
+    machine: Optional[float] = 0.0
+    ship: Optional[float] = 0.0
+    waste: Optional[float] = 0.0
+    business_travel: Optional[float] = 0.0
+    commuting: Optional[float] = 0.0
+    water: Optional[float] = 0.0
+
+
+class ScenarioRequest(BaseModel):
+    project_id: str
+    target_month: Optional[str] = None
+    adjustments: ScenarioAdjustment
+
+
+class ScenarioResult(BaseModel):
+    current_total_kg: float
+    scenario_total_kg: float
+    reduction_kg: float
+    reduction_t: float
+    reduction_percent: float
+    by_category: dict[str, dict]
+    scope_after: dict[str, float]
+
+
+class ForecastItem(BaseModel):
+    target_month: str
+    forecast_total_kg: float
+    forecast_total_t: float
+    trend_slope_kg_per_month: float
+
+
+class ActivityChangeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    change_id: str
+    activity_id: str
+    actor: str
+    field: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    co2_kg_before: Optional[float] = None
+    co2_kg_after: Optional[float] = None
     created_at: datetime.datetime

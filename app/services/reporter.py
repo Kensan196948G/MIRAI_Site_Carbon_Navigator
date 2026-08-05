@@ -238,6 +238,26 @@ def generate_activity_import_template() -> bytes:
     return buffer.getvalue()
 
 
+def generate_project_import_template() -> bytes:
+    """Generate an Excel template for bulk project import."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "工事"
+    headers = ["name", "branch", "work_type", "start_date", "end_date", "description", "close_day"]
+    for col, h in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill(start_color="2E75B6", end_color="2E75B6", fill_type="solid")
+    ws.append(["○○道路改良工事", "東京支店", "道路工事", "2026-04-01", "2026-09-30", "PoC用", 25])
+    ws.append(["○○港湾護岸工事", "大阪支店", "港湾工事", "2026-01-01", "2026-12-31", "PoC用", 25])
+    for col_idx, width in enumerate([28, 14, 14, 14, 14, 24, 10], start=1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 def generate_monthly_report_pdf(project, month: str, results_summary: list[dict]) -> bytes:
     """Generate a Japanese-friendly PDF monthly report (A4)."""
     buffer = io.BytesIO()
