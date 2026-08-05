@@ -48,7 +48,7 @@ def assistant_suggestions(db: Session, project, target_month: str) -> list[dict]
     }
 
     suggestions = []
-    for cat, kg in sorted(totals.items(), key=lambda x: -x[1])[:4]:
+    for cat, _kg in sorted(totals.items(), key=lambda x: -x[1])[:4]:
         evidence = peer_actions.get(cat, [])
         implemented = [a for a in evidence if a["status"] == "implemented"]
         avg_actual = None

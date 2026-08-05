@@ -1,7 +1,6 @@
 """Minimal OIDC authorization-code flow (stdlib + PyJWT)."""
 import json
 import os
-from typing import Optional
 from urllib import parse, request
 
 import jwt

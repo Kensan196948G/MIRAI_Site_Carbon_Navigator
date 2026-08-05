@@ -7,18 +7,28 @@ sqlite3 connection, which ensures that tables created with create_all()
 are visible to the dependency-overridden sessions during requests.
 """
 import datetime
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from starlette.testclient import TestClient
 
-from app.main import app as fastapi_app
+import app.models  # noqa: F401 — ensures all ORM models are registered with Base.metadata
 from app.database import Base, get_db
+from app.main import app as fastapi_app
 from app.models import Branch, User
 from app.security import hash_password
-import app.models  # noqa: F401 — ensures all ORM models are registered with Base.metadata
 
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Clear the in-memory rate limiter between tests."""
+    from app.main import _rate_hits
+
+    _rate_hits.clear()
+    yield
+    _rate_hits.clear()
 
 # ---------------------------------------------------------------------------
 # Test database setup
@@ -61,7 +71,7 @@ def _make_client(role: str):
                 branch=branch,
                 email=f"{username}@example.local",
                 is_active=True,
-                created_at=datetime.datetime.now(datetime.timezone.utc),
+                created_at=datetime.datetime.now(datetime.UTC),
             )
         )
     session.commit()
@@ -69,7 +79,7 @@ def _make_client(role: str):
         session.add(Branch(
             branch_id=f"branch-{name}",
             name=name,
-            created_at=datetime.datetime.now(datetime.timezone.utc),
+            created_at=datetime.datetime.now(datetime.UTC),
         ))
     session.commit()
     session.close()
@@ -145,7 +155,7 @@ def client_pair():
                 branch=branch,
                 email=f"{username}@example.local",
                 is_active=True,
-                created_at=datetime.datetime.now(datetime.timezone.utc),
+                created_at=datetime.datetime.now(datetime.UTC),
             )
         )
     session.commit()
@@ -153,7 +163,7 @@ def client_pair():
         session.add(Branch(
             branch_id=f"branch-{name}",
             name=name,
-            created_at=datetime.datetime.now(datetime.timezone.utc),
+            created_at=datetime.datetime.now(datetime.UTC),
         ))
     session.commit()
     session.close()

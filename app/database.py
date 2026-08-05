@@ -1,6 +1,7 @@
 import os
+
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./carbon_navigator.db")
 
@@ -99,7 +100,7 @@ def _ensure_columns():
             if "totp_secret" not in columns:
                 conn.execute(text("ALTER TABLE users ADD COLUMN totp_secret VARCHAR"))
             if "is_2fa_enabled" not in columns:
-                conn.execute(text(f"ALTER TABLE users ADD COLUMN is_2fa_enabled BOOLEAN DEFAULT 0"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_2fa_enabled BOOLEAN DEFAULT 0"))
             if "oidc_sub" not in columns:
                 conn.execute(text("ALTER TABLE users ADD COLUMN oidc_sub VARCHAR"))
 

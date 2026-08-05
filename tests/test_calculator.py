@@ -9,10 +9,10 @@ needs (category, item_name, unit, quantity, factor_value, effective_from).
 """
 import datetime
 from types import SimpleNamespace
+
 import pytest
 
 from app.services.calculator import calculate_emissions
-
 
 # ---------------------------------------------------------------------------
 # Helpers to build lightweight duck-typed model instances

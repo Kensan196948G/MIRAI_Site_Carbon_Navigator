@@ -4,8 +4,7 @@ Integration tests for the Emissions API (/api/emissions).
 import pytest
 from starlette.testclient import TestClient
 
-from tests.conftest import make_project, make_emission_factor, make_activity
-
+from tests.conftest import make_activity, make_emission_factor, make_project
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -4,6 +4,10 @@ __pycache__/
 .env
 *.db
 data/
+.benchmarks/
+.hypothesis/
+backups/
+logs/
 .pytest_cache/
 .coverage
 htmlcov/

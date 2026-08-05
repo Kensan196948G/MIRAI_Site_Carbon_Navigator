@@ -1,4 +1,3 @@
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -12,8 +11,8 @@ router = APIRouter(prefix="/api/closes", tags=["monthly-closes"])
 
 @router.get("", response_model=list[schemas.MonthlyCloseRead])
 def list_closes(
-    project_id: Optional[str] = None,
-    target_month: Optional[str] = None,
+    project_id: str | None = None,
+    target_month: str | None = None,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -31,7 +30,7 @@ def close_month(
     try:
         return crud.create_monthly_close(db, body, user.username)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/{close_id}", status_code=204)

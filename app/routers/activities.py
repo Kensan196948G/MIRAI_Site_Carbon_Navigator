@@ -2,9 +2,9 @@ import io
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
-from sqlalchemy.orm import Session
-from typing import Optional
 from openpyxl import load_workbook
+from sqlalchemy.orm import Session
+
 from .. import crud, schemas
 from ..database import get_db
 from ..security import get_current_user, require_at_least
@@ -29,13 +29,13 @@ def create_activity(
     try:
         return crud.create_activity_data(db, activity, actor=user.username)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("", response_model=list[schemas.ActivityDataRead])
 def list_activities(
-    project_id: Optional[str] = None,
-    target_month: Optional[str] = None,
+    project_id: str | None = None,
+    target_month: str | None = None,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -66,7 +66,7 @@ async def import_activities(
         raw = await file.read()
         wb = load_workbook(io.BytesIO(raw), data_only=True)
     except Exception:
-        raise HTTPException(status_code=400, detail="Could not parse Excel file")
+        raise HTTPException(status_code=400, detail="Could not parse Excel file") from None
     ws = wb.active
     imported = 0
     skipped = 0
@@ -82,7 +82,7 @@ async def import_activities(
             detail=f"Required columns missing: {', '.join(sorted(required - set(headers)))}",
         )
     for idx, row in enumerate(rows[1:], start=2):
-        record = dict(zip(headers, row))
+        record = dict(zip(headers, row, strict=False))
         if not any(record.values()):
             continue
         payload = {
@@ -164,7 +164,7 @@ def approval_action(
             db, activity_id, body.action, user.username, body.comment
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.put("/{activity_id}", response_model=schemas.ActivityDataRead)

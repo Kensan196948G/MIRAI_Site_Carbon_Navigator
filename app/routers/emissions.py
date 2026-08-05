@@ -1,10 +1,10 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional
+
 from .. import crud, schemas
 from ..database import get_db
-from ..services.calculator import calculate_all_for_month
-from ..services.reduction import get_reduction_suggestions
+from ..security import get_current_user
 from ..services.analysis import (
     detect_anomalies,
     forecast_next_month,
@@ -13,13 +13,14 @@ from ..services.analysis import (
     get_missing_months,
     simulate_scenario,
 )
+from ..services.calculator import calculate_all_for_month
+from ..services.reduction import get_reduction_suggestions
 from ..services.scope import scope_summary_from_results
-from ..security import get_current_user
 
 router = APIRouter(prefix="/api/emissions", tags=["emissions"])
 
 
-def _ensure_project_access(user, db: Session, project_id: Optional[str]):
+def _ensure_project_access(user, db: Session, project_id: str | None):
     if project_id and not crud.has_project_access(db, user, project_id):
         raise HTTPException(status_code=403, detail="Project access denied")
 
@@ -118,8 +119,8 @@ def run_calculation(
 
 @router.get("/results", response_model=list[schemas.EmissionResultRead])
 def get_results(
-    project_id: Optional[str] = None,
-    target_month: Optional[str] = None,
+    project_id: str | None = None,
+    target_month: str | None = None,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -129,8 +130,8 @@ def get_results(
 
 @router.get("/summary", response_model=list[schemas.SummaryItem])
 def get_summary(
-    project_id: Optional[str] = None,
-    target_month: Optional[str] = None,
+    project_id: str | None = None,
+    target_month: str | None = None,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -145,8 +146,8 @@ def get_summary(
 
 @router.get("/trend", response_model=list[schemas.TrendItem])
 def get_trend(
-    project_id: Optional[str] = None,
-    category: Optional[str] = None,
+    project_id: str | None = None,
+    category: str | None = None,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -156,8 +157,8 @@ def get_trend(
 
 @router.get("/missing-factors", response_model=list[schemas.MissingFactorItem])
 def get_missing_factors(
-    project_id: Optional[str] = None,
-    target_month: Optional[str] = None,
+    project_id: str | None = None,
+    target_month: str | None = None,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -204,9 +205,9 @@ def get_anomalies_endpoint(
 
 @router.get("/scope-summary", response_model=list[schemas.ScopeSummaryItem])
 def get_scope_summary(
-    project_id: Optional[str] = None,
-    target_month: Optional[str] = None,
-    year: Optional[int] = None,
+    project_id: str | None = None,
+    target_month: str | None = None,
+    year: int | None = None,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):

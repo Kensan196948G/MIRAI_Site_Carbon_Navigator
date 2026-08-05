@@ -7,7 +7,6 @@ Supported modes:
 import json
 import os
 import random
-from typing import Optional
 from urllib import request as url_request
 
 
@@ -18,7 +17,7 @@ def get_mode() -> str:
 def fetch_machine_data(
     project_code: str,
     target_month: str,
-    supplier: Optional[str] = None,
+    supplier: str | None = None,
 ) -> list[dict]:
     mode = get_mode()
     if mode == "simulator":
@@ -49,7 +48,7 @@ def _simulator(project_code: str, target_month: str) -> list[dict]:
 
 
 def _komatsu(
-    project_code: str, target_month: str, supplier: Optional[str]
+    project_code: str, target_month: str, supplier: str | None
 ) -> list[dict]:
     base_url = os.getenv("MIRAI_KOMATSU_BASE_URL", "").rstrip("/")
     api_key = os.getenv("MIRAI_KOMATSU_API_KEY", "")

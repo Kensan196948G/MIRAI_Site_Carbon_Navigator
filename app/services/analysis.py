@@ -1,7 +1,6 @@
 """Benchmark comparison and anomaly detection for emissions data."""
-from datetime import date
-from typing import Optional
 import statistics
+from datetime import date
 
 from sqlalchemy.orm import Session
 
@@ -178,7 +177,6 @@ def get_comparison(db: Session, project_id: str, target_month: str) -> dict:
 
 
 def get_missing_months(db: Session, project_id: str) -> list[dict]:
-    from datetime import date
 
     project = crud.get_project(db, project_id)
     if not project:
@@ -222,7 +220,7 @@ def forecast_next_month(db: Session, project_id: str) -> dict:
     xs = [p[0] for p in points]
     ys = [p[1] for p in points]
     n = len(points)
-    slope = (n * sum(x * y for x, y in zip(xs, ys)) - sum(xs) * sum(ys)) / (
+    slope = (n * sum(x * y for x, y in zip(xs, ys, strict=True)) - sum(xs) * sum(ys)) / (
         n * sum(x * x for x in xs) - sum(xs) ** 2
     )
     intercept = (sum(ys) - slope * sum(xs)) / n
@@ -240,7 +238,7 @@ def forecast_next_month(db: Session, project_id: str) -> dict:
 
 
 def simulate_scenario(
-    db: Session, project_id: str, target_month: Optional[str], adjustments: dict
+    db: Session, project_id: str, target_month: str | None, adjustments: dict
 ) -> dict:
     from .scope import category_scope
 

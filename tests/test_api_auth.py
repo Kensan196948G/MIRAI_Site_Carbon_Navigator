@@ -1,8 +1,5 @@
 """Tests for authentication, authorization and role-based access."""
-import pytest
 from starlette.testclient import TestClient
-
-from tests.conftest import make_project
 
 
 class TestLogin:
@@ -39,6 +36,7 @@ class TestLogin:
 class TestRoleProtection:
     def test_endpoint_requires_auth(self):
         from starlette.testclient import TestClient
+
         from app.main import app as fastapi_app
 
         with TestClient(fastapi_app) as anon:

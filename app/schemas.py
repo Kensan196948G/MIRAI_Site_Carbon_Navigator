@@ -1,7 +1,7 @@
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-from typing import Optional
 import datetime
 import re
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ProjectCreate(BaseModel):
@@ -10,27 +10,27 @@ class ProjectCreate(BaseModel):
     work_type: str
     start_date: datetime.date
     end_date: datetime.date
-    description: Optional[str] = None
-    close_day: Optional[int] = Field(default=None, ge=1, le=28)
+    description: str | None = None
+    close_day: int | None = Field(default=None, ge=1, le=28)
     created_by: str = "system"
 
 
 class ProjectUpdate(BaseModel):
-    name: Optional[str] = None
-    branch: Optional[str] = None
-    work_type: Optional[str] = None
-    start_date: Optional[datetime.date] = None
-    end_date: Optional[datetime.date] = None
-    description: Optional[str] = None
-    close_day: Optional[int] = Field(default=None, ge=1, le=28)
+    name: str | None = None
+    branch: str | None = None
+    work_type: str | None = None
+    start_date: datetime.date | None = None
+    end_date: datetime.date | None = None
+    description: str | None = None
+    close_day: int | None = Field(default=None, ge=1, le=28)
 
 
 class ProjectRead(ProjectCreate):
     model_config = ConfigDict(from_attributes=True)
     project_id: str
     created_at: datetime.datetime
-    updated_at: Optional[datetime.datetime] = None
-    updated_by: Optional[str] = None
+    updated_at: datetime.datetime | None = None
+    updated_by: str | None = None
 
 
 class EmissionFactorCreate(BaseModel):
@@ -40,25 +40,25 @@ class EmissionFactorCreate(BaseModel):
     factor_value: float
     effective_from: datetime.date
     source: str
-    supplier: Optional[str] = None
+    supplier: str | None = None
 
 
 class EmissionFactorUpdate(BaseModel):
-    category: Optional[str] = None
-    item_name: Optional[str] = None
-    unit: Optional[str] = None
-    factor_value: Optional[float] = None
-    effective_from: Optional[datetime.date] = None
-    source: Optional[str] = None
-    supplier: Optional[str] = None
+    category: str | None = None
+    item_name: str | None = None
+    unit: str | None = None
+    factor_value: float | None = None
+    effective_from: datetime.date | None = None
+    source: str | None = None
+    supplier: str | None = None
 
 
 class EmissionFactorRead(EmissionFactorCreate):
     model_config = ConfigDict(from_attributes=True)
     factor_id: str
     created_at: datetime.datetime
-    updated_at: Optional[datetime.datetime] = None
-    updated_by: Optional[str] = None
+    updated_at: datetime.datetime | None = None
+    updated_by: str | None = None
 
 
 class ActivityDataCreate(BaseModel):
@@ -68,10 +68,10 @@ class ActivityDataCreate(BaseModel):
     item_name: str
     quantity: float
     unit: str
-    source_file: Optional[str] = None
+    source_file: str | None = None
     created_by: str = "system"
-    note: Optional[str] = None
-    supplier: Optional[str] = None
+    note: str | None = None
+    supplier: str | None = None
 
     @field_validator("target_month")
     @classmethod
@@ -89,13 +89,13 @@ class ActivityDataCreate(BaseModel):
 
 
 class ActivityDataUpdate(BaseModel):
-    category: Optional[str] = None
-    item_name: Optional[str] = None
-    quantity: Optional[float] = Field(default=None, gt=0)
-    unit: Optional[str] = None
-    source_file: Optional[str] = None
-    note: Optional[str] = None
-    supplier: Optional[str] = None
+    category: str | None = None
+    item_name: str | None = None
+    quantity: float | None = Field(default=None, gt=0)
+    unit: str | None = None
+    source_file: str | None = None
+    note: str | None = None
+    supplier: str | None = None
 
 
 class ActivityDataRead(ActivityDataCreate):
@@ -104,10 +104,10 @@ class ActivityDataRead(ActivityDataCreate):
     approved: bool
     approval_status: str = "draft"
     created_at: datetime.datetime
-    approved_by: Optional[str] = None
-    approved_at: Optional[datetime.datetime] = None
-    updated_by: Optional[str] = None
-    updated_at: Optional[datetime.datetime] = None
+    approved_by: str | None = None
+    approved_at: datetime.datetime | None = None
+    updated_by: str | None = None
+    updated_at: datetime.datetime | None = None
 
 
 class ActivityDataApprove(BaseModel):
@@ -121,11 +121,11 @@ class EmissionResultRead(BaseModel):
     factor_id: str
     co2_kg: float
     calculated_at: datetime.datetime
-    factor_value: Optional[float] = None
-    factor_source: Optional[str] = None
-    factor_effective_from: Optional[datetime.date] = None
-    item_name: Optional[str] = None
-    unit: Optional[str] = None
+    factor_value: float | None = None
+    factor_source: str | None = None
+    factor_effective_from: datetime.date | None = None
+    item_name: str | None = None
+    unit: str | None = None
 
 
 class CalculationResultItem(EmissionResultRead):
@@ -170,15 +170,15 @@ class MissingFactorItem(BaseModel):
 class BenchmarkItem(BaseModel):
     project_id: str
     target_month: str
-    work_type: Optional[str] = None
+    work_type: str | None = None
     current_total_kg: float
     current_total_t: float
     current_by_category: dict[str, float]
     peer_project_count: int
-    peer_avg_monthly_kg: Optional[float] = None
-    peer_avg_monthly_t: Optional[float] = None
+    peer_avg_monthly_kg: float | None = None
+    peer_avg_monthly_t: float | None = None
     peer_by_category: dict[str, float]
-    comparison_ratio: Optional[float] = None
+    comparison_ratio: float | None = None
 
 
 class AnomalyItem(BaseModel):
@@ -200,29 +200,29 @@ class ReductionSuggestion(BaseModel):
 class UserCreate(BaseModel):
     username: str
     password: str = Field(min_length=6)
-    display_name: Optional[str] = None
+    display_name: str | None = None
     role: str = "viewer"
-    branch: Optional[str] = None
-    email: Optional[str] = None
+    branch: str | None = None
+    email: str | None = None
 
 
 class UserUpdate(BaseModel):
-    display_name: Optional[str] = None
-    role: Optional[str] = None
-    password: Optional[str] = Field(default=None, min_length=6)
-    is_active: Optional[bool] = None
-    branch: Optional[str] = None
-    email: Optional[str] = None
+    display_name: str | None = None
+    role: str | None = None
+    password: str | None = Field(default=None, min_length=6)
+    is_active: bool | None = None
+    branch: str | None = None
+    email: str | None = None
 
 
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     user_id: str
     username: str
-    display_name: Optional[str] = None
+    display_name: str | None = None
     role: str
-    branch: Optional[str] = None
-    email: Optional[str] = None
+    branch: str | None = None
+    email: str | None = None
     is_2fa_enabled: bool = False
     is_active: bool
     created_at: datetime.datetime
@@ -245,17 +245,17 @@ class ReductionActionCreate(BaseModel):
     category: str
     suggestion: str
     status: str = "planned"
-    estimated_reduction_kg: Optional[float] = None
-    actual_reduction_kg: Optional[float] = None
-    note: Optional[str] = None
+    estimated_reduction_kg: float | None = None
+    actual_reduction_kg: float | None = None
+    note: str | None = None
 
 
 class ReductionActionUpdate(BaseModel):
-    status: Optional[str] = None
-    suggestion: Optional[str] = None
-    estimated_reduction_kg: Optional[float] = None
-    actual_reduction_kg: Optional[float] = None
-    note: Optional[str] = None
+    status: str | None = None
+    suggestion: str | None = None
+    estimated_reduction_kg: float | None = None
+    actual_reduction_kg: float | None = None
+    note: str | None = None
 
 
 class ReductionActionRead(ReductionActionCreate):
@@ -263,8 +263,8 @@ class ReductionActionRead(ReductionActionCreate):
     action_id: str
     created_by: str
     created_at: datetime.datetime
-    updated_by: Optional[str] = None
-    updated_at: Optional[datetime.datetime] = None
+    updated_by: str | None = None
+    updated_at: datetime.datetime | None = None
 
 
 class AuditLogRead(BaseModel):
@@ -273,8 +273,8 @@ class AuditLogRead(BaseModel):
     actor: str
     action: str
     resource_type: str
-    resource_id: Optional[str] = None
-    detail: Optional[str] = None
+    resource_id: str | None = None
+    detail: str | None = None
     created_at: datetime.datetime
 
 
@@ -287,10 +287,10 @@ class ImportResult(BaseModel):
 class NotificationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     notification_id: str
-    recipient_role: Optional[str] = None
-    recipient_username: Optional[str] = None
+    recipient_role: str | None = None
+    recipient_username: str | None = None
     message: str
-    link: Optional[str] = None
+    link: str | None = None
     is_read: bool
     created_at: datetime.datetime
 
@@ -298,13 +298,13 @@ class NotificationRead(BaseModel):
 class SiteFeedbackCreate(BaseModel):
     project_id: str
     target_month: str
-    category: Optional[str] = None
+    category: str | None = None
     content: str
 
 
 class SiteFeedbackUpdate(BaseModel):
-    content: Optional[str] = None
-    status: Optional[str] = None
+    content: str | None = None
+    status: str | None = None
 
 
 class SiteFeedbackRead(SiteFeedbackCreate):
@@ -313,14 +313,14 @@ class SiteFeedbackRead(SiteFeedbackCreate):
     status: str
     created_by: str
     created_at: datetime.datetime
-    updated_by: Optional[str] = None
-    updated_at: Optional[datetime.datetime] = None
+    updated_by: str | None = None
+    updated_at: datetime.datetime | None = None
 
 
 class SbtiTargetCreate(BaseModel):
     scope: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     base_year: int
     target_year: int
     base_emissions_kg: float
@@ -328,14 +328,14 @@ class SbtiTargetCreate(BaseModel):
 
 
 class SbtiTargetUpdate(BaseModel):
-    scope: Optional[str] = None
-    name: Optional[str] = None
-    description: Optional[str] = None
-    base_year: Optional[int] = None
-    target_year: Optional[int] = None
-    base_emissions_kg: Optional[float] = None
-    reduction_percent: Optional[float] = None
-    is_active: Optional[bool] = None
+    scope: str | None = None
+    name: str | None = None
+    description: str | None = None
+    base_year: int | None = None
+    target_year: int | None = None
+    base_emissions_kg: float | None = None
+    reduction_percent: float | None = None
+    is_active: bool | None = None
 
 
 class SbtiTargetRead(SbtiTargetCreate):
@@ -343,14 +343,14 @@ class SbtiTargetRead(SbtiTargetCreate):
     target_id: str
     is_active: bool
     created_at: datetime.datetime
-    updated_at: Optional[datetime.datetime] = None
+    updated_at: datetime.datetime | None = None
 
 
 class SbtiProgressItem(SbtiTargetRead):
     target_emissions_kg: float
     current_emissions_kg: float
     reduction_achieved_percent: float
-    progress_ratio: Optional[float] = None
+    progress_ratio: float | None = None
     on_track: bool
 
 
@@ -374,7 +374,7 @@ class DemoGenerateResult(BaseModel):
 class MonthlyCloseCreate(BaseModel):
     project_id: str
     target_month: str
-    note: Optional[str] = None
+    note: str | None = None
 
 
 class MonthlyCloseRead(MonthlyCloseCreate):
@@ -423,7 +423,7 @@ class CopyPreviousResult(BaseModel):
 class ReminderItem(BaseModel):
     project_id: str
     project_name: str
-    branch: Optional[str] = None
+    branch: str | None = None
     status: str  # no_data / unapproved
     activity_count: int
 
@@ -481,12 +481,12 @@ class ProjectImportResult(BaseModel):
 class ComparisonItem(BaseModel):
     current_total_kg: float
     current_total_t: float
-    previous_month_kg: Optional[float] = None
-    previous_month_t: Optional[float] = None
-    mom_ratio: Optional[float] = None
-    previous_year_kg: Optional[float] = None
-    previous_year_t: Optional[float] = None
-    yoy_ratio: Optional[float] = None
+    previous_month_kg: float | None = None
+    previous_month_t: float | None = None
+    mom_ratio: float | None = None
+    previous_year_kg: float | None = None
+    previous_year_t: float | None = None
+    yoy_ratio: float | None = None
 
 
 class MissingMonthItem(BaseModel):
@@ -498,30 +498,30 @@ class MissingMonthItem(BaseModel):
 class MonthStatusItem(BaseModel):
     project_id: str
     project_name: str
-    branch: Optional[str] = None
-    close_day: Optional[int] = None
+    branch: str | None = None
+    close_day: int | None = None
     activity_count: int
     approved_count: int
     is_closed: bool
-    days_remaining: Optional[int] = None
+    days_remaining: int | None = None
 
 
 class ScenarioAdjustment(BaseModel):
-    fuel: Optional[float] = 0.0
-    power: Optional[float] = 0.0
-    material: Optional[float] = 0.0
-    transport: Optional[float] = 0.0
-    machine: Optional[float] = 0.0
-    ship: Optional[float] = 0.0
-    waste: Optional[float] = 0.0
-    business_travel: Optional[float] = 0.0
-    commuting: Optional[float] = 0.0
-    water: Optional[float] = 0.0
+    fuel: float | None = 0.0
+    power: float | None = 0.0
+    material: float | None = 0.0
+    transport: float | None = 0.0
+    machine: float | None = 0.0
+    ship: float | None = 0.0
+    waste: float | None = 0.0
+    business_travel: float | None = 0.0
+    commuting: float | None = 0.0
+    water: float | None = 0.0
 
 
 class ScenarioRequest(BaseModel):
     project_id: str
-    target_month: Optional[str] = None
+    target_month: str | None = None
     adjustments: ScenarioAdjustment
 
 
@@ -548,16 +548,16 @@ class ActivityChangeRead(BaseModel):
     activity_id: str
     actor: str
     field: str
-    old_value: Optional[str] = None
-    new_value: Optional[str] = None
-    co2_kg_before: Optional[float] = None
-    co2_kg_after: Optional[float] = None
+    old_value: str | None = None
+    new_value: str | None = None
+    co2_kg_before: float | None = None
+    co2_kg_after: float | None = None
     created_at: datetime.datetime
 
 
 class ApprovalAction(BaseModel):
     action: str  # submit / approve_branch / approve_env / reject / withdraw
-    comment: Optional[str] = None
+    comment: str | None = None
 
 
 class TotpSetupResponse(BaseModel):
@@ -572,7 +572,7 @@ class TotpVerifyRequest(BaseModel):
 
 class LoginResponse(TokenResponse):
     requires_2fa: bool = False
-    temp_token: Optional[str] = None
+    temp_token: str | None = None
 
 
 class TotpLoginRequest(BaseModel):
@@ -583,10 +583,10 @@ class TotpLoginRequest(BaseModel):
 class OffsetCreditCreate(BaseModel):
     credit_type: str
     name: str
-    serial_number: Optional[str] = None
+    serial_number: str | None = None
     quantity_tco2: float = Field(gt=0)
-    purchased_at: Optional[datetime.date] = None
-    note: Optional[str] = None
+    purchased_at: datetime.date | None = None
+    note: str | None = None
 
 
 class OffsetCreditRead(OffsetCreditCreate):
@@ -594,8 +594,8 @@ class OffsetCreditRead(OffsetCreditCreate):
     credit_id: str
     status: str
     allocated_tco2: float = 0.0
-    allocated_project_id: Optional[str] = None
-    allocated_at: Optional[datetime.datetime] = None
+    allocated_project_id: str | None = None
+    allocated_at: datetime.datetime | None = None
     created_by: str
     created_at: datetime.datetime
 
@@ -618,4 +618,4 @@ class AssistantSuggestion(BaseModel):
     rationale: str
     actions: list[str]
     confidence: float
-    estimated_reduction_kg: Optional[float] = None
+    estimated_reduction_kg: float | None = None

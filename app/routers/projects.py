@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
+
 from .. import crud, schemas
 from ..database import get_db
 from ..security import get_current_user, require_at_least
@@ -33,7 +34,7 @@ async def import_projects(
     try:
         wb = load_workbook(io.BytesIO(await file.read()), data_only=True)
     except Exception:
-        raise HTTPException(status_code=400, detail="Could not parse Excel file")
+        raise HTTPException(status_code=400, detail="Could not parse Excel file") from None
     ws = wb.active
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
@@ -46,7 +47,7 @@ async def import_projects(
     skipped = 0
     errors: list[str] = []
     for idx, row in enumerate(rows[1:], start=2):
-        record = dict(zip(headers, row))
+        record = dict(zip(headers, row, strict=False))
         if not any(record.values()):
             continue
         try:

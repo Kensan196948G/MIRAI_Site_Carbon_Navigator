@@ -1,5 +1,4 @@
 from datetime import date
-from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -20,7 +19,7 @@ def month_end_date(target_month: str) -> date:
     return date(year, month, day)
 
 
-def calculate_emissions(activity, factors) -> Optional[float]:
+def calculate_emissions(activity, factors) -> float | None:
     """Pure helper (kept for unit tests): quantity x newest matching factor."""
     matching = [
         f for f in factors

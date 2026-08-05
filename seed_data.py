@@ -3,15 +3,15 @@ Seed initial emission factors with real Japanese emission data.
 Run: python seed_data.py
 """
 import datetime
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from app.database import SessionLocal, create_tables
 from app import crud, schemas
-from app.security import hash_password
+from app.database import SessionLocal, create_tables
 from app.models import Branch, User
+from app.security import hash_password
 
 
 def seed():
@@ -93,7 +93,7 @@ def seed():
             branch=branch,
             email=email,
             is_active=True,
-            created_at=datetime.datetime.now(datetime.timezone.utc),
+            created_at=datetime.datetime.now(datetime.UTC),
         )
         db.add(db_user)
         users_added += 1
@@ -107,7 +107,7 @@ def seed():
         db.add(Branch(
             branch_id=str(__import__("uuid").uuid4()),
             name=name,
-            created_at=datetime.datetime.now(datetime.timezone.utc),
+            created_at=datetime.datetime.now(datetime.UTC),
         ))
         branches_added += 1
     db.commit()

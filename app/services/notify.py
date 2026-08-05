@@ -3,7 +3,6 @@ import logging
 import os
 import smtplib
 from email.message import EmailMessage
-from typing import Optional
 from urllib import request as url_request
 
 logger = logging.getLogger(__name__)
@@ -67,8 +66,8 @@ def send_teams(text: str) -> bool:
 def deliver_external(
     db,
     message: str,
-    recipient_role: Optional[str] = None,
-    recipient_username: Optional[str] = None,
+    recipient_role: str | None = None,
+    recipient_username: str | None = None,
 ) -> None:
     """Deliver a notification to email/Teams when configured."""
     from .. import crud

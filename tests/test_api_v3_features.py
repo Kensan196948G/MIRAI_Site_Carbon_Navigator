@@ -349,6 +349,7 @@ class TestClientPortal:
 
     def test_client_sees_only_assigned_projects(self, client: TestClient):
         from starlette.testclient import TestClient as TC
+
         from app.main import app as fastapi_app
 
         assigned = make_project(client)
@@ -384,6 +385,7 @@ class TestClientPortal:
 
     def test_client_dashboard_filtered(self, client: TestClient):
         from starlette.testclient import TestClient as TC
+
         from app.main import app as fastapi_app
 
         assigned = make_project(client)

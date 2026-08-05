@@ -25,7 +25,7 @@ def import_telematics(
             project.name, body.target_month, supplier=user.branch
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     imported = 0
     skipped = 0

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from .. import crud, schemas
+from .. import schemas
 from ..database import get_db
 from ..security import get_current_user, require_at_least
 from ..services.demo import clear_demo_data, demo_status, generate_demo_data

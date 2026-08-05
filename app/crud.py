@@ -1,6 +1,5 @@
-from datetime import date, datetime, timezone
-from typing import Optional
 import uuid
+from datetime import UTC, date, datetime
 
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
@@ -16,7 +15,7 @@ def _new_id() -> str:
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # ---------------------------------------------------------------------------
@@ -28,8 +27,8 @@ def add_audit_log(
     actor: str,
     action: str,
     resource_type: str,
-    resource_id: Optional[str] = None,
-    detail: Optional[str] = None,
+    resource_id: str | None = None,
+    detail: str | None = None,
 ) -> models.AuditLog:
     log = models.AuditLog(
         log_id=_new_id(),
@@ -58,7 +57,7 @@ def list_audit_logs(db: Session, limit: int = 200) -> list[models.AuditLog]:
 # Projects
 # ---------------------------------------------------------------------------
 
-def get_project(db: Session, project_id: str) -> Optional[models.Project]:
+def get_project(db: Session, project_id: str) -> models.Project | None:
     return (
         db.query(models.Project)
         .filter(models.Project.project_id == project_id)
@@ -86,7 +85,7 @@ def list_projects(db: Session) -> list[models.Project]:
 
 def update_project(
     db: Session, project_id: str, updates: schemas.ProjectUpdate, actor: str
-) -> Optional[models.Project]:
+) -> models.Project | None:
     project = get_project(db, project_id)
     if not project:
         return None
@@ -123,7 +122,7 @@ def delete_project(db: Session, project_id: str, actor: str) -> bool:
 # Emission factors
 # ---------------------------------------------------------------------------
 
-def get_emission_factor(db: Session, factor_id: str) -> Optional[models.EmissionFactor]:
+def get_emission_factor(db: Session, factor_id: str) -> models.EmissionFactor | None:
     return (
         db.query(models.EmissionFactor)
         .filter(models.EmissionFactor.factor_id == factor_id)
@@ -154,7 +153,7 @@ def create_emission_factor(
     return db_factor
 
 
-def list_emission_factors(db: Session, category: Optional[str] = None):
+def list_emission_factors(db: Session, category: str | None = None):
     query = db.query(models.EmissionFactor)
     if category:
         query = query.filter(models.EmissionFactor.category == category)
@@ -167,7 +166,7 @@ def list_emission_factors(db: Session, category: Optional[str] = None):
 
 def update_emission_factor(
     db: Session, factor_id: str, updates: schemas.EmissionFactorUpdate, actor: str
-) -> Optional[models.EmissionFactor]:
+) -> models.EmissionFactor | None:
     factor = get_emission_factor(db, factor_id)
     if not factor:
         return None
@@ -196,9 +195,9 @@ def get_latest_factor(
     category: str,
     item_name: str,
     unit: str,
-    effective_on: Optional[date] = None,
-    supplier: Optional[str] = None,
-) -> Optional[models.EmissionFactor]:
+    effective_on: date | None = None,
+    supplier: str | None = None,
+) -> models.EmissionFactor | None:
     """Return the newest factor whose effective_from <= effective_on (or today)."""
     query = (
         db.query(models.EmissionFactor)
@@ -326,9 +325,9 @@ def create_activity_data(
 
 def list_activity_data(
     db: Session,
-    project_id: Optional[str] = None,
-    target_month: Optional[str] = None,
-    approved: Optional[bool] = None,
+    project_id: str | None = None,
+    target_month: str | None = None,
+    approved: bool | None = None,
 ):
     query = db.query(models.ActivityData)
     if project_id:
@@ -340,7 +339,7 @@ def list_activity_data(
     return query.order_by(models.ActivityData.created_at.desc()).all()
 
 
-def get_activity(db: Session, activity_id: str) -> Optional[models.ActivityData]:
+def get_activity(db: Session, activity_id: str) -> models.ActivityData | None:
     return (
         db.query(models.ActivityData)
         .filter(models.ActivityData.activity_id == activity_id)
@@ -353,7 +352,7 @@ def update_activity(
     activity_id: str,
     updates: schemas.ActivityDataUpdate,
     actor: str,
-) -> Optional[models.ActivityData]:
+) -> models.ActivityData | None:
     activity = get_activity(db, activity_id)
     if not activity:
         return None
@@ -414,8 +413,8 @@ def log_change(
     field: str,
     old_value,
     new_value,
-    co2_kg_before: Optional[float] = None,
-    co2_kg_after: Optional[float] = None,
+    co2_kg_before: float | None = None,
+    co2_kg_after: float | None = None,
 ) -> models.ActivityChangeLog:
     def _fmt(value):
         if value is None:
@@ -471,7 +470,7 @@ def delete_activity(db: Session, activity_id: str, actor: str) -> bool:
 
 def approve_activity(
     db: Session, activity_id: str, approved: bool, actor: str
-) -> Optional[models.ActivityData]:
+) -> models.ActivityData | None:
     activity = get_activity(db, activity_id)
     if not activity:
         return None
@@ -500,8 +499,8 @@ def transition_approval(
     activity_id: str,
     action: str,
     actor: str,
-    comment: Optional[str] = None,
-) -> Optional[models.ActivityData]:
+    comment: str | None = None,
+) -> models.ActivityData | None:
     """Multi-stage approval: draft -> site_submitted -> branch_approved -> env_approved."""
     activity = get_activity(db, activity_id)
     if not activity:
@@ -599,8 +598,8 @@ def create_emission_result(
 
 def get_results_by_project(
     db: Session,
-    project_id: Optional[str] = None,
-    target_month: Optional[str] = None,
+    project_id: str | None = None,
+    target_month: str | None = None,
 ):
     query = db.query(models.EmissionResult).join(
         models.ActivityData,
@@ -614,7 +613,7 @@ def get_results_by_project(
 
 
 def get_monthly_trend(
-    db: Session, project_id: Optional[str] = None, category: Optional[str] = None
+    db: Session, project_id: str | None = None, category: str | None = None
 ) -> list[dict]:
     query = db.query(models.EmissionResult, models.ActivityData).join(
         models.ActivityData,
@@ -644,7 +643,7 @@ def get_monthly_trend(
 
 
 def find_missing_factors(
-    db: Session, project_id: Optional[str] = None, target_month: Optional[str] = None
+    db: Session, project_id: str | None = None, target_month: str | None = None
 ) -> list[models.ActivityData]:
     query = db.query(models.ActivityData).filter(models.ActivityData.approved == True)  # noqa: E712
     if project_id:
@@ -665,11 +664,11 @@ def find_missing_factors(
 # Users
 # ---------------------------------------------------------------------------
 
-def get_user(db: Session, user_id: str) -> Optional[models.User]:
+def get_user(db: Session, user_id: str) -> models.User | None:
     return db.query(models.User).filter(models.User.user_id == user_id).first()
 
 
-def get_user_by_username(db: Session, username: str) -> Optional[models.User]:
+def get_user_by_username(db: Session, username: str) -> models.User | None:
     return (
         db.query(models.User)
         .filter(models.User.username == username.lower())
@@ -713,7 +712,7 @@ def set_user_active(db: Session, user_id: str, is_active: bool, actor: str):
 
 def update_user(
     db: Session, user_id: str, updates: schemas.UserUpdate, actor: str
-) -> Optional[models.User]:
+) -> models.User | None:
     user = get_user(db, user_id)
     if not user:
         return None
@@ -741,7 +740,7 @@ def set_user_totp(db: Session, user_id: str, secret: str) -> models.User:
 
 
 def find_or_create_oidc_user(
-    db: Session, sub: str, email: Optional[str], display_name: Optional[str]
+    db: Session, sub: str, email: str | None, display_name: str | None
 ) -> models.User:
     user = db.query(models.User).filter(models.User.oidc_sub == sub).first()
     if user:
@@ -810,9 +809,9 @@ def create_reduction_action(
 def add_notification(
     db: Session,
     message: str,
-    recipient_role: Optional[str] = None,
-    recipient_username: Optional[str] = None,
-    link: Optional[str] = None,
+    recipient_role: str | None = None,
+    recipient_username: str | None = None,
+    link: str | None = None,
 ) -> models.Notification:
     notification = models.Notification(
         notification_id=_new_id(),
@@ -838,14 +837,14 @@ def list_notifications(
     db: Session, user: models.User, unread_only: bool = False, limit: int = 100
 ) -> list[models.Notification]:
     query = db.query(models.Notification).filter(
-        (
+        
             (models.Notification.recipient_role == user.role)
             | (models.Notification.recipient_username == user.username)
             | (
                 models.Notification.recipient_role.is_(None)
                 & models.Notification.recipient_username.is_(None)
             )
-        )
+        
     )
     if unread_only:
         query = query.filter(models.Notification.is_read == False)  # noqa: E712
@@ -917,9 +916,9 @@ def create_site_feedback(
 
 def list_site_feedbacks(
     db: Session,
-    project_id: Optional[str] = None,
-    target_month: Optional[str] = None,
-    status: Optional[str] = None,
+    project_id: str | None = None,
+    target_month: str | None = None,
+    status: str | None = None,
 ):
     query = db.query(models.SiteFeedback)
     if project_id:
@@ -1073,7 +1072,7 @@ def create_monthly_close(
 
 
 def list_monthly_closes(
-    db: Session, project_id: Optional[str] = None, target_month: Optional[str] = None
+    db: Session, project_id: str | None = None, target_month: str | None = None
 ) -> list[models.MonthlyClose]:
     query = db.query(models.MonthlyClose)
     if project_id:
@@ -1322,8 +1321,8 @@ def get_month_status(db: Session, target_month: str) -> list[dict]:
         closed = is_month_closed(db, project.project_id, target_month)
         close_day = project.close_day or 25
         year, month = (int(x) for x in target_month.split("-"))
-        from datetime import date
         import calendar
+        from datetime import date
         last_day = calendar.monthrange(year, month)[1]
         close_date = date(year, month, min(close_day, last_day))
         today = date.today()
@@ -1364,7 +1363,7 @@ def create_offset_credit(
     return credit
 
 
-def list_offset_credits(db: Session, status: Optional[str] = None):
+def list_offset_credits(db: Session, status: str | None = None):
     query = db.query(models.OffsetCredit)
     if status:
         query = query.filter(models.OffsetCredit.status == status)
@@ -1443,9 +1442,9 @@ def offset_summary(db: Session) -> dict:
 
 def list_reduction_actions(
     db: Session,
-    project_id: Optional[str] = None,
-    target_month: Optional[str] = None,
-    status: Optional[str] = None,
+    project_id: str | None = None,
+    target_month: str | None = None,
+    status: str | None = None,
 ):
     query = db.query(models.ReductionAction)
     if project_id:

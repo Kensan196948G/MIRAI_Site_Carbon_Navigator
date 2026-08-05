@@ -25,7 +25,7 @@ def create_branch(
     try:
         return crud.create_branch(db, body.name.strip(), user.username)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/{branch_id}", status_code=204)

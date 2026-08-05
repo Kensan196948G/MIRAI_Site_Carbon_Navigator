@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from .. import crud, models
+from .. import crud
 from ..database import get_db
 from ..security import require_at_least
 

@@ -1,4 +1,3 @@
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -12,7 +11,7 @@ router = APIRouter(prefix="/api/credits", tags=["credits"])
 
 @router.get("", response_model=list[schemas.OffsetCreditRead])
 def list_credits(
-    status: Optional[str] = None,
+    status: str | None = None,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -36,7 +35,7 @@ def create_credit(
     try:
         return crud.create_offset_credit(db, body, user.username)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{credit_id}/allocate", response_model=schemas.OffsetCreditRead)
@@ -53,7 +52,7 @@ def allocate_credit(
             db, credit_id, body.project_id, body.quantity_tco2, user.username
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{credit_id}/retire", response_model=schemas.OffsetCreditRead)
@@ -65,7 +64,7 @@ def retire_credit(
     try:
         return crud.retire_offset_credit(db, credit_id, user.username)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/{credit_id}", status_code=204)

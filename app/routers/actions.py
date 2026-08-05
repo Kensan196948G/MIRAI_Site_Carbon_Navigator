@@ -1,4 +1,3 @@
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -12,9 +11,9 @@ router = APIRouter(prefix="/api/actions", tags=["reduction-actions"])
 
 @router.get("", response_model=list[schemas.ReductionActionRead])
 def list_actions(
-    project_id: Optional[str] = None,
-    target_month: Optional[str] = None,
-    status: Optional[str] = None,
+    project_id: str | None = None,
+    target_month: str | None = None,
+    status: str | None = None,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):

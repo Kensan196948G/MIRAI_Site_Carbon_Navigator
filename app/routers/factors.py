@@ -1,6 +1,7 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional
+
 from .. import crud, schemas
 from ..database import get_db
 from ..security import get_current_user, require_at_least
@@ -19,7 +20,7 @@ def create_factor(
 
 @router.get("", response_model=list[schemas.EmissionFactorRead])
 def list_factors(
-    category: Optional[str] = None,
+    category: str | None = None,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):

@@ -11,8 +11,7 @@ import json
 import os
 import secrets
 import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import pyotp
 from fastapi import Depends, HTTPException, status
@@ -35,7 +34,7 @@ ROLE_LEVELS = {
 _bearer = HTTPBearer(auto_error=False)
 
 
-def hash_password(password: str, salt: Optional[bytes] = None) -> str:
+def hash_password(password: str, salt: bytes | None = None) -> str:
     if salt is None:
         salt = os.urandom(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120_000)
@@ -91,7 +90,7 @@ def create_token(
     return f"{signing_input}.{signature}"
 
 
-def decode_token(token: str) -> Optional[dict]:
+def decode_token(token: str) -> dict | None:
     try:
         header_b64, payload_b64, signature_b64 = token.split(".")
         signing_input = f"{header_b64}.{payload_b64}"
@@ -109,7 +108,7 @@ def decode_token(token: str) -> Optional[dict]:
 
 
 def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     db: Session = Depends(get_db),
 ):
     if credentials is None:
@@ -157,7 +156,7 @@ def require_at_least(min_role: str):
 
 
 def utcnow():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # ---------------------------------------------------------------------------

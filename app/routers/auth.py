@@ -1,6 +1,5 @@
 import secrets
 import time
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
@@ -142,7 +141,7 @@ def oidc_callback(code: str, state: str, db: Session = Depends(get_db)):
     try:
         claims = oidc.login_with_code(code)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"OIDC login failed: {e}")
+        raise HTTPException(status_code=400, detail=f"OIDC login failed: {e}") from e
     user = crud.find_or_create_oidc_user(
         db, claims["sub"], claims.get("email"), claims.get("name")
     )

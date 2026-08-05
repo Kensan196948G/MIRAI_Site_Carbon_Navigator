@@ -20,4 +20,4 @@ def convert(
     try:
         return unit_service.convert(body.value, body.from_unit, body.to_unit)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e

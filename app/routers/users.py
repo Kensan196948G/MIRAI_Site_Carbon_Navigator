@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from .. import crud, schemas
+from .. import crud, models, schemas
 from ..database import get_db
 from ..security import require_at_least
-from .. import models
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -28,7 +27,7 @@ def create_user(
     try:
         return crud.create_user(db, body, actor=user.username)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.put("/{user_id}/active", response_model=schemas.UserRead)

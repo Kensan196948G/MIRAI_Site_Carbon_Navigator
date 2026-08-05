@@ -1,5 +1,6 @@
 """Tests for new capabilities: CRUD, trend, coverage, import, actions, audit."""
 import io
+
 import pytest
 from openpyxl import Workbook
 from starlette.testclient import TestClient

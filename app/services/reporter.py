@@ -1,8 +1,9 @@
-import io
-import datetime
 import csv
+import datetime
+import io
+
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -299,14 +300,6 @@ def generate_monthly_report_pdf(project, month: str, results_summary: list[dict]
         fontSize=9,
         leading=13,
     )
-    cell_style = ParagraphStyle(
-        "CellJP",
-        parent=styles["BodyText"],
-        fontName=_JAPANESE_FONT,
-        fontSize=8,
-        leading=11,
-    )
-
     elements = []
     elements.append(Paragraph("CO2排出量 月次レポート", title_style))
     elements.append(Paragraph(f"対象月: {month} / 作成日: {datetime.date.today().isoformat()}", body_style))

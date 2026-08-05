@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
+
 from .. import crud
 from ..database import get_db
 from ..security import get_current_user
-from ..services.scope import scope_summary_from_results
-from ..services.sbti import compute_sbti_progress
 from ..services.reporter import (
     generate_annual_report_pdf,
     generate_monthly_report_csv,
@@ -13,6 +12,8 @@ from ..services.reporter import (
     generate_monthly_report_pdf,
     generate_project_card_pdf,
 )
+from ..services.sbti import compute_sbti_progress
+from ..services.scope import scope_summary_from_results
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
