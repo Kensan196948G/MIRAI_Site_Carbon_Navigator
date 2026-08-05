@@ -100,7 +100,13 @@ def _ensure_columns():
             if "totp_secret" not in columns:
                 conn.execute(text("ALTER TABLE users ADD COLUMN totp_secret VARCHAR"))
             if "is_2fa_enabled" not in columns:
-                conn.execute(text("ALTER TABLE users ADD COLUMN is_2fa_enabled BOOLEAN DEFAULT 0"))
+                default = "false" if dialect == "postgresql" else "0"
+                conn.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN is_2fa_enabled BOOLEAN DEFAULT "
+                        + default
+                    )
+                )
             if "oidc_sub" not in columns:
                 conn.execute(text("ALTER TABLE users ADD COLUMN oidc_sub VARCHAR"))
 

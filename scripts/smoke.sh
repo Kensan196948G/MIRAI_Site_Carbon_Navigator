@@ -2,7 +2,7 @@
 # Smoke test: health + login + dashboard.
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-http://127.0.0.1:8010}"
+BASE_URL="${BASE_URL:-http://127.0.0.1:8020}"
 USERNAME="${SMOKE_USER:-admin}"
 PASSWORD="${SMOKE_PASSWORD:-admin123}"
 
