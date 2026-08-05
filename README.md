@@ -69,6 +69,14 @@ uvicorn app.main:app --reload --port 8000
 ブラウザで `http://localhost:8000` を開くとログイン画面が表示されます。
 API ドキュメントは `http://localhost:8000/docs` で確認できます。
 
+## 🌐 本番環境
+
+- URL: https://carbon.mirai-dx-platform.com
+- 構成: FastAPI（Docker）+ PostgreSQL 16 + Cloudflare Tunnel（mirai-dx-platform.com）
+- バックアップ: `scripts/backup.sh`（毎日02:00、14世代保持）
+- 監視: `scripts/monitor.sh`（5分毎、`logs/monitor.log`）
+- 運用文書: [docs/operations/](./docs/operations/README.md)（SLO・Runbook・バックアップ/復元・監視・運用台帳・セキュリティ）
+
 ### Docker 起動
 
 ```bash
