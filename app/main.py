@@ -16,6 +16,7 @@ from .routers import (
     auth,
     emissions,
     factors,
+    notifications,
     projects,
     reports,
     users,
@@ -60,6 +61,7 @@ app.include_router(emissions.router)
 app.include_router(reports.router)
 app.include_router(actions.router)
 app.include_router(audit.router)
+app.include_router(notifications.router)
 
 
 # Serve static frontend files

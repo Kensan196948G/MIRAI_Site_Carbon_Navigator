@@ -93,6 +93,16 @@ flowchart LR
 | resource_type / resource_id | string | 対象リソース |
 | detail | text | 詳細 |
 
+### notifications
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| notification_id | string | 通知ID |
+| recipient_role / recipient_username | string | 宛先ロール / 宛先ユーザー（nullは全員） |
+| message | text | 通知文 |
+| link | string | 遷移先 |
+| is_read | boolean | 既読状態 |
+
 ## 3. 入力検証
 
 | 検証 | 内容 |
@@ -144,3 +154,8 @@ flowchart TD
 - 前月比異常値を警告できるか
 - レポート数値とDB集計が一致するか
 - 承認前データが公式レポートに含まれないか
+- PDF/CSV/Excelの出力形式が正しいか
+- 同工種ベンチマークの比較ロジックが正しいか
+- 前月比・3ヶ月平均比の異常値検知が正しいか
+- 通知の宛先ロール・既読管理が正しいか
+- PostgreSQL等の別DBで起動できるか

@@ -66,7 +66,31 @@
             <i class="bi bi-journal-check me-1" aria-hidden="true"></i>監査
           </a>
         </li>
+        <li class="nav-item d-none" id="usersNavItem">
+          <a class="nav-link" href="#" data-page="users" aria-label="ユーザー管理">
+            <i class="bi bi-people me-1" aria-hidden="true"></i>ユーザー
+          </a>
+        </li>
         <li class="nav-item ms-lg-2" id="authNavArea">
+          <div class="dropdown d-inline-block me-2">
+            <button class="btn btn-sm btn-outline-light position-relative" type="button"
+                    data-bs-toggle="dropdown" aria-expanded="false" aria-label="通知">
+              <i class="bi bi-bell" aria-hidden="true"></i>
+              <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" id="notifBadge">0</span>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end p-0 shadow" id="notificationMenu"
+                 style="width:360px;max-height:420px;overflow-y:auto;">
+              <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                <strong class="small">通知</strong>
+                <button class="btn btn-sm btn-outline-primary" onclick="markAllNotificationsRead()" type="button">
+                  <i class="bi bi-check2-all me-1" aria-hidden="true"></i>すべて既読
+                </button>
+              </div>
+              <div id="notificationList" class="p-2">
+                <p class="text-muted small text-center my-3">通知はありません</p>
+              </div>
+            </div>
+          </div>
           <span class="navbar-text text-white-50 me-2 d-none d-lg-inline" id="userLabel"></span>
           <button class="btn btn-sm btn-outline-light" onclick="logout()" type="button" id="logoutBtn">
             <i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i>ログアウト
@@ -316,8 +340,14 @@
     </div>
 
     <div id="missingFactorsAlert" class="alert alert-warning d-none" role="alert"></div>
+    <div id="anomalyAlert" class="alert alert-danger d-none" role="alert"></div>
 
     <div id="calcResultsSection" style="display:none;">
+      <div class="card mb-4" id="benchmarkCard" style="display:none;">
+        <div class="card-header"><i class="bi bi-activity me-2" aria-hidden="true"></i>同工種ベンチマーク</div>
+        <div class="card-body" id="benchmarkBody"></div>
+      </div>
+
       <div class="row g-3 mb-4" aria-label="CO2排出量サマリー">
         <div class="col-6 col-md-4 col-xl-2"><div class="stat-card total"><div class="stat-value" id="statTotal">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">🌍 合計</div></div></div>
         <div class="col-6 col-md-4 col-xl-2"><div class="stat-card fuel"><div class="stat-value" id="statFuel">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">🔥 燃料</div></div></div>
@@ -397,6 +427,9 @@
         </button>
         <button class="btn btn-outline-success" onclick="downloadCurrentReport('csv')" type="button">
           <i class="bi bi-filetype-csv me-1" aria-hidden="true"></i>CSV
+        </button>
+        <button class="btn btn-outline-danger" onclick="downloadCurrentReport('pdf')" type="button">
+          <i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>PDF
         </button>
       </div>
     </div>
@@ -540,6 +573,40 @@
               </tr>
             </thead>
             <tbody id="auditTableBody">
+              <tr><td colspan="6" class="text-center py-4 text-muted">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Users ============ -->
+  <section id="section-users" class="page-section" aria-labelledby="users-heading">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h2 id="users-heading"><i class="bi bi-people me-2" aria-hidden="true"></i>ユーザー管理</h2>
+        <p>アカウントの作成・ロール変更・有効/無効化を行います。</p>
+      </div>
+      <button class="btn btn-primary" onclick="openUserModal()" type="button">
+        <i class="bi bi-person-plus me-1" aria-hidden="true"></i>新規ユーザー
+      </button>
+    </div>
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0" aria-label="ユーザーテーブル">
+            <thead>
+              <tr>
+                <th scope="col">ユーザー名</th>
+                <th scope="col">表示名</th>
+                <th scope="col">ロール</th>
+                <th scope="col">状態</th>
+                <th scope="col">作成日</th>
+                <th scope="col" class="text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
               <tr><td colspan="6" class="text-center py-4 text-muted">読み込み中...</td></tr>
             </tbody>
           </table>
@@ -752,6 +819,50 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
         <button type="button" class="btn btn-primary" onclick="submitActionForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== User Modal ===== -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="userModalLabel">ユーザーの登録</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <form id="userForm" novalidate>
+          <input type="hidden" id="eUserId">
+          <div class="mb-3">
+            <label for="eUsername" class="form-label">ユーザー名 <span class="text-danger">*</span></label>
+            <input type="text" id="eUsername" class="form-control" required maxlength="50" autocomplete="off">
+          </div>
+          <div class="mb-3">
+            <label for="eDisplayName" class="form-label">表示名</label>
+            <input type="text" id="eDisplayName" class="form-control" maxlength="100">
+          </div>
+          <div class="mb-3">
+            <label for="eUserRole" class="form-label">ロール</label>
+            <select id="eUserRole" class="form-select">
+              <option value="viewer">閲覧 (Viewer)</option>
+              <option value="site">現場入力 (SiteInput)</option>
+              <option value="reviewer">レビュアー (EnvironmentReviewer)</option>
+              <option value="admin">管理者 (CarbonAdmin)</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="eUserPassword" class="form-label">パスワード <span class="text-danger" id="pwRequiredMark">*</span></label>
+            <input type="password" id="eUserPassword" class="form-control" minlength="6" autocomplete="new-password"
+                   placeholder="6文字以上">
+            <div class="form-text" id="pwHelp">新規作成時は必須。編集時は空欄で変更しません。</div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitUserForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
       </div>
     </div>
   </div>

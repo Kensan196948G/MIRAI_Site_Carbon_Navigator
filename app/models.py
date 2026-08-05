@@ -129,3 +129,15 @@ class AuditLog(Base):
     resource_id = Column(String, nullable=True)
     detail = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True))
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    notification_id = Column(String, primary_key=True)
+    recipient_role = Column(String, nullable=True)
+    recipient_username = Column(String, nullable=True)
+    message = Column(Text, nullable=False)
+    link = Column(String, nullable=True)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True))

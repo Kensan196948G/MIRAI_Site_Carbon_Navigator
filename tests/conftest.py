@@ -104,6 +104,76 @@ def site_client():
     yield from _make_client("site")
 
 
+@pytest.fixture(scope="function")
+def reviewer_client():
+    yield from _make_client("reviewer")
+
+
+@pytest.fixture(scope="function")
+def client_pair():
+    """Admin and reviewer clients sharing one in-memory DB (for notification tests)."""
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base.metadata.create_all(bind=engine)
+    session = TestingSessionLocal()
+    for username, display_name, user_role in [
+        ("admin", "管理者", "admin"),
+        ("reviewer", "レビュアー", "reviewer"),
+        ("site", "現場担当", "site"),
+        ("viewer", "閲覧者", "viewer"),
+    ]:
+        session.add(
+            User(
+                user_id=f"user-{username}",
+                username=username,
+                display_name=display_name,
+                password_hash=hash_password(f"{username}123"),
+                role=user_role,
+                is_active=True,
+                created_at=datetime.datetime.now(datetime.timezone.utc),
+            )
+        )
+    session.commit()
+    session.close()
+
+    def override_get_db():
+        db = TestingSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    fastapi_app.dependency_overrides[get_db] = override_get_db
+
+    def login(username, password):
+        client = TestClient(fastapi_app)
+        resp = client.post(
+            "/api/auth/login",
+            json={"username": username, "password": password},
+        )
+        assert resp.status_code == 200, resp.text
+        client.headers.update({"Authorization": f"Bearer {resp.json()['access_token']}"})
+        return client
+
+    with TestClient(fastapi_app) as admin:
+        login_resp = admin.post(
+            "/api/auth/login",
+            json={"username": "admin", "password": "admin123"},
+        )
+        assert login_resp.status_code == 200, login_resp.text
+        admin.headers.update({"Authorization": f"Bearer {login_resp.json()['access_token']}"})
+        reviewer = login("reviewer", "reviewer123")
+        site = login("site", "site123")
+        yield admin, reviewer, site
+
+    fastapi_app.dependency_overrides.clear()
+    Base.metadata.drop_all(bind=engine)
+
+
 # ---------------------------------------------------------------------------
 # Helper factory functions
 # ---------------------------------------------------------------------------

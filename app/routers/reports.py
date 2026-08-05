@@ -4,7 +4,11 @@ from sqlalchemy.orm import Session
 from .. import crud
 from ..database import get_db
 from ..security import get_current_user
-from ..services.reporter import generate_monthly_report_csv, generate_monthly_report_excel
+from ..services.reporter import (
+    generate_monthly_report_csv,
+    generate_monthly_report_excel,
+    generate_monthly_report_pdf,
+)
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -40,6 +44,10 @@ def download_monthly_report(
         content = generate_monthly_report_csv(project, target_month, results_summary)
         media_type = "text/csv; charset=utf-8"
         filename = f"co2_report_{project_id}_{target_month}.csv"
+    elif format == "pdf":
+        content = generate_monthly_report_pdf(project, target_month, results_summary)
+        media_type = "application/pdf"
+        filename = f"co2_report_{project_id}_{target_month}.pdf"
     else:
         content = generate_monthly_report_excel(project, target_month, results_summary)
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

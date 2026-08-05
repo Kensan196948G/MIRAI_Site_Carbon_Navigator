@@ -160,6 +160,29 @@ class MissingFactorItem(BaseModel):
     unit: str
 
 
+class BenchmarkItem(BaseModel):
+    project_id: str
+    target_month: str
+    work_type: Optional[str] = None
+    current_total_kg: float
+    current_total_t: float
+    current_by_category: dict[str, float]
+    peer_project_count: int
+    peer_avg_monthly_kg: Optional[float] = None
+    peer_avg_monthly_t: Optional[float] = None
+    peer_by_category: dict[str, float]
+    comparison_ratio: Optional[float] = None
+
+
+class AnomalyItem(BaseModel):
+    activity_id: str
+    category: str
+    item_name: str
+    quantity: float
+    unit: str
+    reasons: list[str]
+
+
 class ReductionSuggestion(BaseModel):
     category: str
     total_co2_kg: float
@@ -172,6 +195,13 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=6)
     display_name: Optional[str] = None
     role: str = "viewer"
+
+
+class UserUpdate(BaseModel):
+    display_name: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = Field(default=None, min_length=6)
+    is_active: Optional[bool] = None
 
 
 class UserRead(BaseModel):
@@ -238,3 +268,14 @@ class ImportResult(BaseModel):
     imported: int
     skipped: int
     errors: list[str]
+
+
+class NotificationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    notification_id: str
+    recipient_role: Optional[str] = None
+    recipient_username: Optional[str] = None
+    message: str
+    link: Optional[str] = None
+    is_read: bool
+    created_at: datetime.datetime

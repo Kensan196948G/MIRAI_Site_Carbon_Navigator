@@ -262,6 +262,14 @@ def create_activity_data(
         db_activity.activity_id,
         f"{db_activity.category}/{db_activity.item_name} {db_activity.quantity}{db_activity.unit}",
     )
+    project = get_project(db, activity.project_id)
+    add_notification(
+        db,
+        message=f"活動量が登録されました: {project.name if project else activity.project_id} / "
+                f"{db_activity.item_name} {db_activity.quantity:,.3f}{db_activity.unit}",
+        recipient_role="reviewer",
+        link=f"/#/activities?project={activity.project_id}&month={activity.target_month}",
+    )
     return db_activity
 
 
@@ -309,6 +317,14 @@ def update_activity(
     db.commit()
     db.refresh(activity)
     add_audit_log(db, actor, "update", "activity", activity_id)
+    project = get_project(db, activity.project_id)
+    add_notification(
+        db,
+        message=f"活動量が更新され承認解除されました: {project.name if project else activity.project_id} / "
+                f"{activity.item_name}",
+        recipient_role="reviewer",
+        link=f"/#/activities?project={activity.project_id}&month={activity.target_month}",
+    )
     return activity
 
 
@@ -322,6 +338,11 @@ def delete_activity(db: Session, activity_id: str, actor: str) -> bool:
     db.delete(activity)
     db.commit()
     add_audit_log(db, actor, "delete", "activity", activity_id)
+    add_notification(
+        db,
+        message=f"活動量が削除されました: {activity.item_name} ({activity.project_id} / {activity.target_month})",
+        recipient_role="reviewer",
+    )
     return True
 
 
@@ -340,6 +361,13 @@ def approve_activity(
     db.refresh(activity)
     add_audit_log(
         db, actor, "approve" if approved else "unapprove", "activity", activity_id
+    )
+    project = get_project(db, activity.project_id)
+    add_notification(
+        db,
+        message=f"活動量が{'承認' if approved else '承認取消'}されました: "
+                f"{project.name if project else activity.project_id} / {activity.item_name}",
+        recipient_role="site",
     )
     return activity
 
@@ -501,6 +529,24 @@ def set_user_active(db: Session, user_id: str, is_active: bool, actor: str):
     return user
 
 
+def update_user(
+    db: Session, user_id: str, updates: schemas.UserUpdate, actor: str
+) -> Optional[models.User]:
+    user = get_user(db, user_id)
+    if not user:
+        return None
+    data = updates.model_dump(exclude_unset=True)
+    if "password" in data and data["password"]:
+        user.password_hash = hash_password(data.pop("password"))
+    for key, value in data.items():
+        if value is not None:
+            setattr(user, key, value)
+    db.commit()
+    db.refresh(user)
+    add_audit_log(db, actor, "update", "user", user_id, f"username={user.username}")
+    return user
+
+
 # ---------------------------------------------------------------------------
 # Reduction actions
 # ---------------------------------------------------------------------------
@@ -518,7 +564,92 @@ def create_reduction_action(
     db.commit()
     db.refresh(db_action)
     add_audit_log(db, actor, "create", "reduction_action", db_action.action_id)
+    project = get_project(db, action.project_id)
+    add_notification(
+        db,
+        message=f"削減アクションが登録されました: {project.name if project else action.project_id} / {action.suggestion}",
+        recipient_role="reviewer",
+    )
     return db_action
+
+
+# ---------------------------------------------------------------------------
+# Notifications
+# ---------------------------------------------------------------------------
+
+def add_notification(
+    db: Session,
+    message: str,
+    recipient_role: Optional[str] = None,
+    recipient_username: Optional[str] = None,
+    link: Optional[str] = None,
+) -> models.Notification:
+    notification = models.Notification(
+        notification_id=_new_id(),
+        recipient_role=recipient_role,
+        recipient_username=recipient_username,
+        message=message,
+        link=link,
+        is_read=False,
+        created_at=utcnow(),
+    )
+    db.add(notification)
+    db.commit()
+    return notification
+
+
+def list_notifications(
+    db: Session, user: models.User, unread_only: bool = False, limit: int = 100
+) -> list[models.Notification]:
+    query = db.query(models.Notification).filter(
+        (
+            (models.Notification.recipient_role == user.role)
+            | (models.Notification.recipient_username == user.username)
+            | (
+                models.Notification.recipient_role.is_(None)
+                & models.Notification.recipient_username.is_(None)
+            )
+        )
+    )
+    if unread_only:
+        query = query.filter(models.Notification.is_read == False)  # noqa: E712
+    return query.order_by(models.Notification.created_at.desc()).limit(limit).all()
+
+
+def unread_notification_count(db: Session, user: models.User) -> int:
+    return len(list_notifications(db, user, unread_only=True, limit=1000))
+
+
+def mark_notification_read(
+    db: Session, notification_id: str, user: models.User
+) -> bool:
+    notification = (
+        db.query(models.Notification)
+        .filter(models.Notification.notification_id == notification_id)
+        .first()
+    )
+    if not notification:
+        return False
+    owned = (
+        notification.recipient_username == user.username
+        or notification.recipient_role == user.role
+        or (notification.recipient_role is None and notification.recipient_username is None)
+    )
+    if not owned:
+        return False
+    notification.is_read = True
+    db.commit()
+    return True
+
+
+def mark_all_notifications_read(db: Session, user: models.User) -> int:
+    notifications = list_notifications(db, user, unread_only=True, limit=1000)
+    count = 0
+    for n in notifications:
+        n.is_read = True
+        count += 1
+    db.commit()
+    return count
 
 
 def list_reduction_actions(

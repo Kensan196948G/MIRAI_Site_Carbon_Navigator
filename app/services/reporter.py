@@ -4,6 +4,27 @@ import csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+from reportlab.platypus import (
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
+
+from .reduction import get_reduction_suggestions
+
+try:
+    pdfmetrics.registerFont(UnicodeCIDFont("HeiseiKakuGo-W5"))
+    _JAPANESE_FONT = "HeiseiKakuGo-W5"
+except Exception:
+    _JAPANESE_FONT = "Helvetica"
 
 
 def generate_monthly_report_excel(project, month: str, results_summary: list[dict]) -> bytes:
@@ -183,5 +204,153 @@ def generate_activity_import_template() -> bytes:
         ws2.append([cat, desc])
     buffer = io.BytesIO()
     wb.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def generate_monthly_report_pdf(project, month: str, results_summary: list[dict]) -> bytes:
+    """Generate a Japanese-friendly PDF monthly report (A4)."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=18 * mm,
+        leftMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+        title=f"CO2排出量月次レポート {month}",
+        author="MIRAI Site Carbon Navigator",
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "TitleJP",
+        parent=styles["Title"],
+        fontName=_JAPANESE_FONT,
+        fontSize=16,
+        leading=22,
+        textColor=colors.HexColor("#1f5e33"),
+        spaceAfter=6,
+    )
+    h2_style = ParagraphStyle(
+        "H2JP",
+        parent=styles["Heading2"],
+        fontName=_JAPANESE_FONT,
+        fontSize=12,
+        leading=16,
+        textColor=colors.HexColor("#2d7d46"),
+        spaceBefore=10,
+        spaceAfter=6,
+    )
+    body_style = ParagraphStyle(
+        "BodyJP",
+        parent=styles["BodyText"],
+        fontName=_JAPANESE_FONT,
+        fontSize=9,
+        leading=13,
+    )
+    cell_style = ParagraphStyle(
+        "CellJP",
+        parent=styles["BodyText"],
+        fontName=_JAPANESE_FONT,
+        fontSize=8,
+        leading=11,
+    )
+
+    elements = []
+    elements.append(Paragraph("CO2排出量 月次レポート", title_style))
+    elements.append(Paragraph(f"対象月: {month} / 作成日: {datetime.date.today().isoformat()}", body_style))
+    elements.append(Spacer(1, 6 * mm))
+
+    info = Table(
+        [
+            ["プロジェクト名", getattr(project, "name", "")],
+            ["支店", getattr(project, "branch", "")],
+            ["工種", getattr(project, "work_type", "")],
+            ["期間", f"{getattr(project, 'start_date', '')} 〜 {getattr(project, 'end_date', '')}"],
+        ],
+        colWidths=[35 * mm, 139 * mm],
+    )
+    info.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), _JAPANESE_FONT),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#e8f5ec")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#c8e6d0")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(info)
+    elements.append(Spacer(1, 4 * mm))
+
+    elements.append(Paragraph("1. カテゴリ別CO2排出量サマリー", h2_style))
+    category_totals: dict[str, float] = {}
+    for r in results_summary:
+        cat = r.get("category", "other")
+        category_totals[cat] = category_totals.get(cat, 0.0) + r.get("co2_kg", 0.0)
+    cat_rows = [["カテゴリ", "CO2排出量 (kg-CO2)", "CO2排出量 (t-CO2)"]]
+    for cat, co2 in sorted(category_totals.items()):
+        cat_rows.append([cat, f"{co2:,.3f}", f"{co2 / 1000:,.4f}"])
+    total_co2 = sum(category_totals.values())
+    cat_rows.append(["合計", f"{total_co2:,.3f}", f"{total_co2 / 1000:,.4f}"])
+    cat_table = Table(cat_rows, colWidths=[70 * mm, 52 * mm, 52 * mm])
+    cat_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), _JAPANESE_FONT),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E75B6")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+        ("FONTNAME", (0, -1), (-1, -1), _JAPANESE_FONT),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e8f5ec")),
+    ]))
+    elements.append(cat_table)
+
+    elements.append(Paragraph("2. 活動量詳細", h2_style))
+    detail_rows = [["カテゴリ", "品目", "数量", "単位", "排出係数", "CO2 (kg-CO2)"]]
+    for r in results_summary:
+        detail_rows.append([
+            r.get("category", ""),
+            r.get("item_name", ""),
+            f"{r.get('quantity', 0):,.3f}",
+            r.get("unit", ""),
+            f"{r.get('factor_value', 0):,.4f}",
+            f"{r.get('co2_kg', 0):,.3f}",
+        ])
+    detail_table = Table(detail_rows, colWidths=[28 * mm, 42 * mm, 26 * mm, 18 * mm, 30 * mm, 30 * mm])
+    detail_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), _JAPANESE_FONT),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E75B6")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+        ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    elements.append(detail_table)
+
+    suggestions = get_reduction_suggestions(
+        [{"category": r.get("category"), "co2_kg": r.get("co2_kg")} for r in results_summary]
+    )
+    if suggestions:
+        elements.append(Paragraph("3. 削減ナビ（推奨アクション）", h2_style))
+        for s in suggestions[:3]:
+            text = f"<b>{s['category']}（{s['total_co2_kg'] / 1000:,.3f} t-CO2）</b><br/>" + "<br/>".join(
+                f"・{item}" for item in s["suggestions"][:3]
+            )
+            elements.append(Paragraph(text, body_style))
+            elements.append(Spacer(1, 2 * mm))
+
+    elements.append(Spacer(1, 4 * mm))
+    elements.append(
+        Paragraph(
+            "※ 排出係数は対象月時点で有効な最新版を適用しています。算定根拠（係数値・出典・適用開始日）はシステム上で追跡可能です。",
+            body_style,
+        )
+    )
+
+    doc.build(elements)
     buffer.seek(0)
     return buffer.getvalue()

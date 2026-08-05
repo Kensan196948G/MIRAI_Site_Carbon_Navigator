@@ -53,7 +53,7 @@ frontend/
 └── static/
     ├── css/style.css
     └── js/app.js
-tests/                   # pytest (90件)
+tests/                   # pytest (101件)
 ```
 
 ## 🚀 クイックスタート
@@ -95,14 +95,18 @@ docker-compose up --build
 | F-02 | 活動量 CRUD + 承認ワークフロー | ✅ 実装済み |
 | F-03 | 排出係数マスタ CRUD（適用開始日で版管理） | ✅ 実装済み |
 | F-04 | CO2算定（対象月時点の係数適用・係数スナップショット） | ✅ 実装済み |
-| F-05 | 月次レポート（Excel/CSV） | ✅ 実装済み |
+| F-05 | 月次レポート（Excel/CSV/PDF） | ✅ 実装済み |
 | F-06 | 削減ナビ + 削減アクション管理 | ✅ 実装済み |
 | F-07 | ダッシュボード（全社/工事別推移・カテゴリ構成） | ✅ 実装済み |
 | F-08 | Excel一括取込 + テンプレート配布 | ✅ 実装済み |
 | F-09 | ログイン・ロール制御（4ロール） | ✅ 実装済み |
 | F-10 | 監査ログ（登録・変更・承認・削除・ログイン） | ✅ 実装済み |
 | F-11 | 未算定活動の可視化（係数未設定データ） | ✅ 実装済み |
-| F-12 | 発注者向け出力（CSV/Excel拡充） | 🔄 次フェーズ |
+| F-12 | 発注者向けPDF出力 | ✅ 実装済み |
+| F-13 | 同工種ベンチマーク + 異常値検知（前月比・3ヶ月平均比） | ✅ 実装済み |
+| F-14 | 通知（ベル・未読管理・イベント通知） | ✅ 実装済み |
+| F-15 | PostgreSQL対応（Docker Compose構成） | ✅ 実装済み |
+| F-16 | ユーザー管理画面（作成・編集・有効/無効化） | ✅ 実装済み |
 
 ## 🧮 算定方式
 
@@ -146,10 +150,14 @@ CO2排出量 (kg) = 活動量 × 排出係数
 | GET | /api/emissions/trend | 月次トレンド | viewer〜 |
 | GET | /api/emissions/missing-factors | 係数未設定一覧 | viewer〜 |
 | GET | /api/emissions/reduction/{project}/{month} | 削減ナビ | viewer〜 |
-| GET | /api/reports/monthly/{project}/{month}?format=xlsx\|csv | レポート出力 | viewer〜 |
+| GET | /api/reports/monthly/{project}/{month}?format=xlsx\|csv\|pdf | レポート出力 | viewer〜 |
+| GET | /api/emissions/benchmark?project_id=&target_month= | 同工種ベンチマーク | viewer〜 |
+| GET | /api/emissions/anomalies?project_id=&target_month= | 異常値検知 | viewer〜 |
+| GET | /api/notifications | 通知一覧（未読フィルタ可） | viewer〜 |
+| PUT | /api/notifications/{id}/read, /api/notifications/read-all | 既読管理 | viewer〜 |
 | GET/POST/PUT/DELETE | /api/actions | 削減アクション管理 | 閲覧: viewer〜 / 編集: site〜 / 削除: reviewer〜 |
 | GET | /api/audit-logs | 監査ログ | reviewer〜 |
-| GET/POST | /api/users | ユーザー管理 | admin |
+| GET/POST/PUT | /api/users | ユーザー管理 | admin |
 
 ## 🔧 環境変数
 
@@ -159,12 +167,24 @@ CO2排出量 (kg) = 活動量 × 排出係数
 | MIRAI_SECRET_KEY | 起動時ランダム | トークン署名キー（本番は固定値を設定） |
 | MIRAI_CORS_ORIGINS | http://localhost:8000,http://127.0.0.1:8000 | 許可オリジン（カンマ区切り） |
 
+### PostgreSQL での起動（Docker Compose）
+
+```bash
+docker-compose up --build
+# app → http://localhost:8000
+# db  → postgresql+psycopg2://mirai:mirai@db:5432/mirai_carbon（コンテナ間接続のみ）
+```
+
+PostgreSQL は `docker-compose.yml` の `db` サービスで自動起動し、app は起動時にテーブル作成 + シードを実行します。データは `pgdata` ボリュームに永続化されます。
+
+> ローカル開発を SQLite のまま行う場合は `DATABASE_URL=sqlite:///./carbon_navigator.db` を指定してください。
+
 ## 🧪 テスト
 
 ```bash
 pip install -r requirements.txt pytest httpx
 pytest tests/ -v
-# → 90 passed
+# → 101 passed
 ```
 
 ## 🗺️ ロードマップ
@@ -182,10 +202,13 @@ gantt
   認証・ロール制御         :done, c1, 2026-08-05, 2d
   ダッシュボード・Excel取込 :done, c2, after c1, 3d
   削減アクション管理       :done, c3, after c2, 2d
-  section Phase 4 (次フェーズ)
-  2現場PoC                :d1, 2026-09-01, 30d
-  発注者向けPDF出力        :d2, after d1, 14d
-  SBTi目標連携・Scope3拡張 :d3, after d2, 21d
+  section Phase 4 (完了)
+  PDF・ベンチマーク・通知   :done, d1, 2026-08-05, 2d
+  PostgreSQL対応           :done, d2, after d1, 1d
+  ユーザー管理画面          :done, d3, after d2, 1d
+  section Phase 5 (次フェーズ)
+  2現場PoC                :e1, 2026-09-01, 30d
+  SBTi目標連携・Scope3拡張 :e2, after e1, 21d
 ```
 
 ## 📄 関連ドキュメント

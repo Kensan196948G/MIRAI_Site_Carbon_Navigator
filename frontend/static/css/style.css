@@ -366,6 +366,17 @@ tr.approved-row td {
   color: #fff;
 }
 
+/* ===== Notification items ===== */
+.notification-item {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.notification-item:hover {
+  background: var(--primary-bg);
+}
+
 /* ===== Scrollable table wrapper ===== */
 .table-responsive {
   border-radius: 8px;

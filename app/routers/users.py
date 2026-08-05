@@ -41,3 +41,18 @@ def set_active(
     if not result:
         raise HTTPException(status_code=404, detail="User not found")
     return result
+
+
+@router.put("/{user_id}", response_model=schemas.UserRead)
+def update_user(
+    user_id: str,
+    body: schemas.UserUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(require_at_least("admin")),
+):
+    if body.role is not None and body.role not in {"admin", "reviewer", "site", "viewer"}:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    result = crud.update_user(db, user_id, body, user.username)
+    if not result:
+        raise HTTPException(status_code=404, detail="User not found")
+    return result

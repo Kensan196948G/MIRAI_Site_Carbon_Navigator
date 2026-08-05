@@ -287,6 +287,12 @@ function updateAuthUI() {
     if (hasRole('reviewer')) auditNav.classList.remove('d-none');
     else auditNav.classList.add('d-none');
   }
+
+  const usersNav = document.getElementById('usersNavItem');
+  if (usersNav) {
+    if (hasRole('admin')) usersNav.classList.remove('d-none');
+    else usersNav.classList.add('d-none');
+  }
 }
 
 function forceLogout() {
@@ -308,6 +314,73 @@ function showLoginModal() {
   modal.show();
   document.getElementById('loginError').classList.add('d-none');
   document.getElementById('loginForm').reset();
+}
+
+// ===== Notifications =====
+async function refreshUnreadBadge() {
+  const auth = getAuth();
+  if (!auth) return;
+  try {
+    const data = await fetchJSON('/api/notifications/unread-count');
+    const badge = document.getElementById('notifBadge');
+    if (badge) {
+      badge.textContent = data.count;
+      badge.classList.toggle('d-none', !data.count);
+    }
+  } catch (_) {}
+}
+
+async function loadNotifications() {
+  const list = document.getElementById('notificationList');
+  if (!list) return;
+  try {
+    const notifications = await fetchJSON('/api/notifications?unread_only=true');
+    while (list.firstChild) list.removeChild(list.firstChild);
+    if (!notifications || !notifications.length) {
+      const p = document.createElement('p');
+      p.className = 'text-muted small text-center my-3';
+      p.textContent = '未読の通知はありません';
+      list.appendChild(p);
+      return;
+    }
+    for (const n of notifications) {
+      const item = document.createElement('div');
+      item.className = 'notification-item border-bottom py-2 px-1';
+      item.setAttribute('role', 'button');
+      item.tabIndex = 0;
+      item.addEventListener('click', () => markNotificationRead(n.notification_id));
+      const msg = document.createElement('div');
+      msg.className = 'small';
+      msg.textContent = n.message;
+      const meta = document.createElement('div');
+      meta.className = 'text-muted small';
+      meta.textContent = new Date(n.created_at).toLocaleString('ja-JP');
+      item.appendChild(msg);
+      item.appendChild(meta);
+      list.appendChild(item);
+    }
+  } catch (_) {}
+}
+
+async function markNotificationRead(notificationId) {
+  try {
+    await fetchJSON(`/api/notifications/${notificationId}/read`, { method: 'PUT' });
+    refreshUnreadBadge();
+    loadNotifications();
+  } catch (err) {
+    showToast(`既読処理に失敗: ${err.message}`, 'danger');
+  }
+}
+
+async function markAllNotificationsRead() {
+  try {
+    await fetchJSON('/api/notifications/read-all', { method: 'PUT' });
+    refreshUnreadBadge();
+    loadNotifications();
+    showToast('すべて既読にしました', 'success');
+  } catch (err) {
+    showToast(`既読処理に失敗: ${err.message}`, 'danger');
+  }
 }
 
 async function submitLogin() {
@@ -358,6 +431,7 @@ function navigateTo(page) {
     case 'factors': loadFactors(); break;
     case 'actions': populateProjectSelects().then(loadActions); break;
     case 'audit': loadAuditLogs(); break;
+    case 'users': loadUsers(); break;
   }
 }
 
@@ -545,6 +619,7 @@ async function submitProjectForm() {
     bootstrap.Modal.getInstance(document.getElementById('projectModal')).hide();
     loadProjects();
     loadDashboard();
+    refreshUnreadBadge();
   } catch (err) {
     showToast(`保存失敗: ${err.message}`, 'danger');
   } finally {
@@ -688,6 +763,7 @@ async function submitActivityForm() {
     document.getElementById('actMonthPicker').value = month;
     showToast('活動量を登録しました', 'success');
     loadActivities(projectId, month);
+    refreshUnreadBadge();
   } catch (err) {
     showToast(`登録失敗: ${err.message}`, 'danger');
   } finally {
@@ -765,6 +841,7 @@ async function bulkApprove() {
   }
   hideLoading();
   showToast(`一括承認完了: 成功 ${success}件${failed ? ` / 失敗 ${failed}件` : ''}`, failed ? 'warning' : 'success');
+  refreshUnreadBadge();
 }
 
 function openActivityEditModal(activity) {
@@ -846,6 +923,7 @@ async function importActivities() {
     showToast(`取込完了: 成功 ${data.imported}件`, data.errors && data.errors.length ? 'warning' : 'success');
     fileInput.value = '';
     onActivityFilterChange();
+    refreshUnreadBadge();
   } catch (err) {
     showToast(`取込失敗: ${err.message}`, 'danger');
   } finally {
@@ -872,6 +950,7 @@ async function executeCalculation() {
     renderCalculationResults(result, summary);
     renderEmissionChart(summary);
     await loadMissingFactors(projectId, month);
+    await Promise.all([loadBenchmark(projectId, month), loadAnomalies(projectId, month)]);
 
     try {
       const suggestions = await fetchJSON(`/api/emissions/reduction/${encodeURIComponent(projectId)}/${encodeURIComponent(month)}`);
@@ -883,10 +962,57 @@ async function executeCalculation() {
       lastSuggestions = [];
       renderReductionSuggestions([]);
     }
+    refreshUnreadBadge();
   } catch (err) {
     showToast(`算定失敗: ${err.message}`, 'danger');
   } finally {
     hideLoading();
+  }
+}
+
+async function loadBenchmark(projectId, month) {
+  const card = document.getElementById('benchmarkCard');
+  const body = document.getElementById('benchmarkBody');
+  try {
+    const data = await fetchJSON(`/api/emissions/benchmark?${new URLSearchParams({ project_id: projectId, target_month: month })}`);
+    if (!data.peer_project_count) {
+      card.style.display = 'none';
+      return;
+    }
+    while (body.firstChild) body.removeChild(body.firstChild);
+    const currentT = (data.current_total_t || 0).toFixed(3);
+    const peerT = data.peer_avg_monthly_t == null ? '-' : data.peer_avg_monthly_t.toFixed(3);
+    const ratio = data.comparison_ratio == null ? '-' : `${(data.comparison_ratio * 100).toFixed(0)}%`;
+    const badgeClass = data.comparison_ratio == null ? 'bg-secondary'
+      : data.comparison_ratio <= 1.0 ? 'bg-success' : 'bg-danger';
+    const ratioBadge = document.createElement('span');
+    ratioBadge.className = `badge ${badgeClass}`;
+    ratioBadge.textContent = `同工種平均比 ${ratio}`;
+    const text = document.createElement('div');
+    text.className = 'small';
+    text.textContent = `対象工事: ${currentT} t-CO2 / 同工種(${data.work_type || '不明'})の他工事 ${data.peer_project_count} 件の月平均: ${peerT} t-CO2`;
+    text.appendChild(document.createTextNode(' '));
+    text.appendChild(ratioBadge);
+    body.appendChild(text);
+    card.style.display = 'block';
+  } catch (_) {
+    card.style.display = 'none';
+  }
+}
+
+async function loadAnomalies(projectId, month) {
+  const alertEl = document.getElementById('anomalyAlert');
+  try {
+    const anomalies = await fetchJSON(`/api/emissions/anomalies?${new URLSearchParams({ project_id: projectId, target_month: month })}`);
+    if (anomalies && anomalies.length) {
+      const lines = anomalies.map(a => `${a.item_name} (${a.category}/${a.quantity}${a.unit}): ${a.reasons.join('、')}`);
+      alertEl.textContent = `⚠️ 異常値の可能性がある活動量が ${anomalies.length} 件あります。\n${lines.slice(0, 5).join('\n')}${lines.length > 5 ? `\n他 ${lines.length - 5} 件` : ''}`;
+      alertEl.classList.remove('d-none');
+    } else {
+      alertEl.classList.add('d-none');
+    }
+  } catch (_) {
+    alertEl.classList.add('d-none');
   }
 }
 
@@ -1220,6 +1346,7 @@ async function submitFactorForm() {
     }
     bootstrap.Modal.getInstance(document.getElementById('factorModal')).hide();
     loadFactors();
+    refreshUnreadBadge();
   } catch (err) {
     showToast(`保存失敗: ${err.message}`, 'danger');
   } finally {
@@ -1345,6 +1472,7 @@ async function submitActionForm() {
     }
     bootstrap.Modal.getInstance(document.getElementById('actionModal')).hide();
     loadActions();
+    refreshUnreadBadge();
   } catch (err) {
     showToast(`保存失敗: ${err.message}`, 'danger');
   } finally {
@@ -1401,6 +1529,123 @@ function renderAuditLogs(logs) {
   }
 }
 
+// ===== Users =====
+async function loadUsers() {
+  const tbody = document.getElementById('usersTableBody');
+  setTbodyRow(tbody, makeLoadingRow(6));
+  try {
+    const users = await fetchJSON('/api/users');
+    renderUsersTable(users);
+  } catch (err) {
+    setTbodyRow(tbody, makeErrorRow(6, err.message));
+  }
+}
+
+function renderUsersTable(users) {
+  const tbody = document.getElementById('usersTableBody');
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+  if (!users || users.length === 0) {
+    tbody.appendChild(makeEmptyRow(6, '👤', 'ユーザーが登録されていません。'));
+    return;
+  }
+  const auth = getAuth();
+  for (const u of users) {
+    const tr = document.createElement('tr');
+    tr.appendChild(td(u.username));
+    tr.appendChild(td(u.display_name || '-'));
+    const roleTd = document.createElement('td');
+    roleTd.appendChild(makeBadge(ROLE_LABELS[u.role] || u.role,
+      u.role === 'admin' ? 'bg-danger' : u.role === 'reviewer' ? 'bg-info' : u.role === 'site' ? 'bg-primary' : 'bg-secondary'));
+    tr.appendChild(roleTd);
+    tr.appendChild(td(makeBadge(u.is_active ? '有効' : '無効', u.is_active ? 'bg-success' : 'bg-secondary')));
+    tr.appendChild(td(new Date(u.created_at).toLocaleDateString('ja-JP')));
+    const actionTd = document.createElement('td');
+    actionTd.className = 'text-center';
+    if (u.user_id !== auth.user.user_id) {
+      actionTd.appendChild(makeActionButton('', 'bi-pencil', () => openUserModal(u), 'btn-outline-primary btn-icon', '編集'));
+      actionTd.appendChild(makeActionButton(
+        u.is_active ? '無効化' : '有効化',
+        u.is_active ? 'bi-pause-circle' : 'bi-play-circle',
+        () => toggleUserActive(u),
+        u.is_active ? 'btn-outline-warning' : 'btn-outline-success'
+      ));
+    } else {
+      actionTd.appendChild(document.createTextNode('自分'));
+    }
+    tr.appendChild(actionTd);
+    tbody.appendChild(tr);
+  }
+}
+
+function openUserModal(user = null) {
+  const form = document.getElementById('userForm');
+  form.reset();
+  document.getElementById('eUserId').value = user ? user.user_id : '';
+  document.getElementById('pwRequiredMark').style.display = user ? 'none' : '';
+  document.getElementById('pwHelp').textContent = user ? '編集時は空欄でパスワードを変更しません。' : '新規作成時は必須。6文字以上。';
+  document.getElementById('eUserPassword').required = !user;
+  if (user) {
+    document.getElementById('eUsername').value = user.username;
+    document.getElementById('eUsername').readOnly = true;
+    document.getElementById('eDisplayName').value = user.display_name || '';
+    document.getElementById('eUserRole').value = user.role;
+    document.getElementById('userModalLabel').textContent = 'ユーザーの編集';
+  } else {
+    document.getElementById('eUsername').readOnly = false;
+    document.getElementById('userModalLabel').textContent = 'ユーザーの新規登録';
+  }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('userModal')).show();
+}
+
+async function submitUserForm() {
+  const form = document.getElementById('userForm');
+  if (!form.checkValidity()) { form.reportValidity(); return; }
+  const editId = document.getElementById('eUserId').value;
+  const username = document.getElementById('eUsername').value.trim();
+  const displayName = document.getElementById('eDisplayName').value.trim();
+  const role = document.getElementById('eUserRole').value;
+  const password = document.getElementById('eUserPassword').value;
+
+  showLoading();
+  try {
+    if (editId) {
+      const data = { display_name: displayName, role };
+      if (password) data.password = password;
+      await fetchJSON(`/api/users/${editId}`, { method: 'PUT', body: data });
+      showToast('ユーザーを更新しました', 'success');
+    } else {
+      if (!password) { showToast('パスワードを入力してください', 'warning'); hideLoading(); return; }
+      await fetchJSON('/api/users', {
+        method: 'POST',
+        body: { username, display_name: displayName, role, password },
+      });
+      showToast('ユーザーを登録しました', 'success');
+    }
+    bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+    loadUsers();
+    refreshUnreadBadge();
+  } catch (err) {
+    showToast(`保存失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function toggleUserActive(user) {
+  const next = !user.is_active;
+  if (!window.confirm(`ユーザー「${user.username}」を${next ? '有効化' : '無効化'}しますか？`)) return;
+  showLoading();
+  try {
+    await fetchJSON(`/api/users/${user.user_id}/active?is_active=${next}`, { method: 'PUT' });
+    showToast(`ユーザーを${next ? '有効化' : '無効化'}しました`, 'success');
+    loadUsers();
+  } catch (err) {
+    showToast(`操作失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
 // ===== Init =====
 document.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
@@ -1417,10 +1662,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  document.getElementById('notificationMenu').addEventListener('show.bs.dropdown', loadNotifications);
+
   updateAuthUI();
 
   if (getAuth()) {
     navigateTo('dashboard');
+    refreshUnreadBadge();
+    setInterval(refreshUnreadBadge, 60000);
   } else {
     showLoginModal();
   }

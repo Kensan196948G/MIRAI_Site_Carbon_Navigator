@@ -3,5 +3,7 @@ uvicorn[standard]
 sqlalchemy
 pydantic
 openpyxl
+reportlab
+psycopg2-binary
 python-multipart
 aiofiles

@@ -4,9 +4,12 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./carbon_navigator.db")
 
+_connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False},
+    connect_args=_connect_args,
+    pool_pre_ping=True,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -23,6 +26,8 @@ def _ensure_columns():
     """Lightweight additive migration for SQLite (existing DBs from MVP)."""
     inspector = inspect(engine)
     tables = set(inspector.get_table_names())
+    dialect = engine.dialect.name
+    datetime_type = "TIMESTAMP" if dialect == "postgresql" else "DATETIME"
 
     # activity_data: approver + edit audit columns
     if "activity_data" in tables:
@@ -30,9 +35,9 @@ def _ensure_columns():
         with engine.begin() as conn:
             for col, ddl in {
                 "approved_by": "ALTER TABLE activity_data ADD COLUMN approved_by VARCHAR",
-                "approved_at": "ALTER TABLE activity_data ADD COLUMN approved_at DATETIME",
+                "approved_at": f"ALTER TABLE activity_data ADD COLUMN approved_at {datetime_type}",
                 "updated_by": "ALTER TABLE activity_data ADD COLUMN updated_by VARCHAR",
-                "updated_at": "ALTER TABLE activity_data ADD COLUMN updated_at DATETIME",
+                "updated_at": f"ALTER TABLE activity_data ADD COLUMN updated_at {datetime_type}",
                 "note": "ALTER TABLE activity_data ADD COLUMN note VARCHAR",
             }.items():
                 if col not in columns:
@@ -57,7 +62,7 @@ def _ensure_columns():
         columns = {c["name"] for c in inspector.get_columns("projects")}
         with engine.begin() as conn:
             if "updated_at" not in columns:
-                conn.execute(text("ALTER TABLE projects ADD COLUMN updated_at DATETIME"))
+                conn.execute(text(f"ALTER TABLE projects ADD COLUMN updated_at {datetime_type}"))
             if "updated_by" not in columns:
                 conn.execute(text("ALTER TABLE projects ADD COLUMN updated_by VARCHAR"))
 
@@ -68,7 +73,7 @@ def _ensure_columns():
             if "created_by" not in columns:
                 conn.execute(text("ALTER TABLE emission_factors ADD COLUMN created_by VARCHAR"))
             if "updated_at" not in columns:
-                conn.execute(text("ALTER TABLE emission_factors ADD COLUMN updated_at DATETIME"))
+                conn.execute(text(f"ALTER TABLE emission_factors ADD COLUMN updated_at {datetime_type}"))
             if "updated_by" not in columns:
                 conn.execute(text("ALTER TABLE emission_factors ADD COLUMN updated_by VARCHAR"))
 

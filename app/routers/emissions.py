@@ -5,6 +5,7 @@ from .. import crud, schemas
 from ..database import get_db
 from ..services.calculator import calculate_all_for_month
 from ..services.reduction import get_reduction_suggestions
+from ..services.analysis import detect_anomalies, get_benchmark
 from ..security import get_current_user
 
 router = APIRouter(prefix="/api/emissions", tags=["emissions"])
@@ -49,6 +50,14 @@ def run_calculation(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     outcome = calculate_all_for_month(db, body.project_id, body.target_month)
+    if outcome["missing_factors"]:
+        crud.add_notification(
+            db,
+            message=f"排出係数未設定の活動量が {len(outcome['missing_factors'])} 件あります "
+                    f"({project.name} / {body.target_month})",
+            recipient_role="admin",
+            link=f"/#/calculation?project={body.project_id}&month={body.target_month}",
+        )
     items = []
     for result in outcome["results"]:
         activity = result.activity
@@ -124,6 +133,31 @@ def get_missing_factors(
         )
         for a in activities
     ]
+
+
+@router.get("/benchmark", response_model=schemas.BenchmarkItem)
+def get_benchmark_endpoint(
+    project_id: str,
+    target_month: str,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    project = crud.get_project(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return get_benchmark(db, project, target_month)
+
+
+@router.get("/anomalies", response_model=list[schemas.AnomalyItem])
+def get_anomalies_endpoint(
+    project_id: str,
+    target_month: str,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    if not crud.get_project(db, project_id):
+        raise HTTPException(status_code=404, detail="Project not found")
+    return detect_anomalies(db, project_id, target_month)
 
 
 @router.get("/reduction/{project_id}/{target_month}", response_model=list[schemas.ReductionSuggestion])
