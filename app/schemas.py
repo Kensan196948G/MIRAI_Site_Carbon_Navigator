@@ -279,3 +279,79 @@ class NotificationRead(BaseModel):
     link: Optional[str] = None
     is_read: bool
     created_at: datetime.datetime
+
+
+class SiteFeedbackCreate(BaseModel):
+    project_id: str
+    target_month: str
+    category: Optional[str] = None
+    content: str
+
+
+class SiteFeedbackUpdate(BaseModel):
+    content: Optional[str] = None
+    status: Optional[str] = None
+
+
+class SiteFeedbackRead(SiteFeedbackCreate):
+    model_config = ConfigDict(from_attributes=True)
+    feedback_id: str
+    status: str
+    created_by: str
+    created_at: datetime.datetime
+    updated_by: Optional[str] = None
+    updated_at: Optional[datetime.datetime] = None
+
+
+class SbtiTargetCreate(BaseModel):
+    scope: str
+    name: str
+    description: Optional[str] = None
+    base_year: int
+    target_year: int
+    base_emissions_kg: float
+    reduction_percent: float
+
+
+class SbtiTargetUpdate(BaseModel):
+    scope: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    base_year: Optional[int] = None
+    target_year: Optional[int] = None
+    base_emissions_kg: Optional[float] = None
+    reduction_percent: Optional[float] = None
+    is_active: Optional[bool] = None
+
+
+class SbtiTargetRead(SbtiTargetCreate):
+    model_config = ConfigDict(from_attributes=True)
+    target_id: str
+    is_active: bool
+    created_at: datetime.datetime
+    updated_at: Optional[datetime.datetime] = None
+
+
+class SbtiProgressItem(SbtiTargetRead):
+    target_emissions_kg: float
+    current_emissions_kg: float
+    reduction_achieved_percent: float
+    progress_ratio: Optional[float] = None
+    on_track: bool
+
+
+class ScopeSummaryItem(BaseModel):
+    scope: str
+    label: str
+    total_co2_kg: float
+    total_co2_t: float
+    by_category: dict[str, float]
+
+
+class DemoGenerateResult(BaseModel):
+    project_count: int
+    activity_count: int
+    result_count: int
+    action_count: int
+    feedback_count: int
+    projects: list[str]

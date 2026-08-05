@@ -39,6 +39,10 @@ def seed():
         {"category": "machine", "item_name": "クローラクレーン", "unit": "h", "factor_value": 32.0, "source": "建機メーカーカタログ値 (目安)"},
         {"category": "ship", "item_name": "作業船", "unit": "h", "factor_value": 120.0, "source": "内航船排出原単位 (目安)"},
         {"category": "waste", "item_name": "建設廃棄物", "unit": "t", "factor_value": 45.0, "source": "廃棄物処理原単位 (目安)"},
+        {"category": "business_travel", "item_name": "出張(鉄道)", "unit": "人-km", "factor_value": 0.021, "source": "環境省 排出係数 (鉄道)"},
+        {"category": "business_travel", "item_name": "出張(飛行機)", "unit": "人-km", "factor_value": 0.095, "source": "環境省 排出係数 (航空)"},
+        {"category": "commuting", "item_name": "通勤(車)", "unit": "人-km", "factor_value": 0.130, "source": "環境省 排出係数 (乗用車)"},
+        {"category": "water", "item_name": "上水道", "unit": "m3", "factor_value": 0.360, "source": "水道排出原単位 (目安)"},
     ]
 
     added = 0

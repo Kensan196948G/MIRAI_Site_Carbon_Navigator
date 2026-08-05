@@ -61,6 +61,16 @@
             <i class="bi bi-lightbulb me-1" aria-hidden="true"></i>削減アクション
           </a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="feedbacks" aria-label="現場フィードバック">
+            <i class="bi bi-chat-left-text me-1" aria-hidden="true"></i>フィードバック
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="sbti" aria-label="SBTi目標">
+            <i class="bi bi-bullseye me-1" aria-hidden="true"></i>SBTi
+          </a>
+        </li>
         <li class="nav-item d-none" id="auditNavItem">
           <a class="nav-link" href="#" data-page="audit" aria-label="監査ログ">
             <i class="bi bi-journal-check me-1" aria-hidden="true"></i>監査
@@ -160,6 +170,33 @@
         </div>
       </div>
     </div>
+
+    <div class="row g-4 mt-1">
+      <div class="col-lg-7">
+        <div class="card h-100">
+          <div class="card-header"><i class="bi bi-bullseye me-2" aria-hidden="true"></i>SBTi目標進捗</div>
+          <div class="card-body" id="dashSbtiBody">
+            <p class="text-muted small mb-0">SBTi目標が未設定です。「SBTi」ページから登録できます。</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="card h-100">
+          <div class="card-header"><i class="bi bi-magic me-2" aria-hidden="true"></i>PoCデモデータ</div>
+          <div class="card-body">
+            <p class="text-muted small mb-2" id="demoStatusText">デモデータ: 未生成</p>
+            <div class="d-flex gap-2 flex-wrap" data-role-min="admin">
+              <button class="btn btn-sm btn-primary" onclick="generateDemoData()" type="button">
+                <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>生成（2現場×7ヶ月）
+              </button>
+              <button class="btn btn-sm btn-outline-danger" onclick="clearDemoData()" type="button">
+                <i class="bi bi-trash me-1" aria-hidden="true"></i>削除
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- ============ Projects ============ -->
@@ -233,6 +270,9 @@
                   <option value="machine">🚜 建機</option>
                   <option value="ship">🚢 船舶</option>
                   <option value="waste">🗑️ 廃棄物</option>
+                  <option value="business_travel">🚄 出張交通</option>
+                  <option value="commuting">🚗 通勤</option>
+                  <option value="water">💧 水</option>
                 </select>
               </div>
               <div class="mb-3">
@@ -354,6 +394,12 @@
         <div class="col-6 col-md-4 col-xl-2"><div class="stat-card power"><div class="stat-value" id="statPower">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">⚡ 電力</div></div></div>
         <div class="col-6 col-md-4 col-xl-2"><div class="stat-card material"><div class="stat-value" id="statMaterial">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">🏗️ 材料</div></div></div>
         <div class="col-6 col-md-4 col-xl-2"><div class="stat-card transport"><div class="stat-value" id="statTransport">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">🚚 輸送</div></div></div>
+      </div>
+
+      <div class="row g-3 mb-4" aria-label="Scope別サマリー">
+        <div class="col-4"><div class="stat-card scope1"><div class="stat-value" id="statScope1">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">Scope1 直接排出</div></div></div>
+        <div class="col-4"><div class="stat-card scope2"><div class="stat-value" id="statScope2">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">Scope2 電力</div></div></div>
+        <div class="col-4"><div class="stat-card scope3"><div class="stat-value" id="statScope3">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">Scope3 間接排出</div></div></div>
       </div>
 
       <div class="row g-4 mb-4">
@@ -615,6 +661,93 @@
     </div>
   </section>
 
+  <!-- ============ Site Feedbacks ============ -->
+  <section id="section-feedbacks" class="page-section" aria-labelledby="feedbacks-heading">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h2 id="feedbacks-heading"><i class="bi bi-chat-left-text me-2" aria-hidden="true"></i>現場フィードバック</h2>
+        <p>現場からの指摘・改善要望を記録し、対応状況を管理します。</p>
+      </div>
+      <button class="btn btn-primary" onclick="openFeedbackModal()" type="button" data-role-min="site">
+        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>フィードバック登録
+      </button>
+    </div>
+    <div class="filter-bar" role="search" aria-label="フィードバックフィルター">
+      <div class="form-group">
+        <label for="fbProjectSelect" class="form-label">工事</label>
+        <select id="fbProjectSelect" class="form-select project-select" onchange="loadFeedbacks()"></select>
+      </div>
+      <div class="form-group">
+        <label for="fbStatusFilter" class="form-label">状態</label>
+        <select id="fbStatusFilter" class="form-select" onchange="loadFeedbacks()">
+          <option value="">すべて</option>
+          <option value="open">未対応</option>
+          <option value="acknowledged">対応中</option>
+          <option value="resolved">解決済み</option>
+        </select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0" aria-label="フィードバックテーブル">
+            <thead>
+              <tr>
+                <th scope="col">工事</th>
+                <th scope="col">対象月</th>
+                <th scope="col">カテゴリ</th>
+                <th scope="col">内容</th>
+                <th scope="col">状態</th>
+                <th scope="col">登録者</th>
+                <th scope="col" class="text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="feedbacksTableBody">
+              <tr><td colspan="7" class="text-center py-4 text-muted">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SBTi ============ -->
+  <section id="section-sbti" class="page-section" aria-labelledby="sbti-heading">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h2 id="sbti-heading"><i class="bi bi-bullseye me-2" aria-hidden="true"></i>SBTi目標管理</h2>
+        <p>Scope別の削減目標と進捗を管理します。</p>
+      </div>
+      <button class="btn btn-primary" onclick="openSbtiModal()" type="button" data-role-min="admin">
+        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>目標登録
+      </button>
+    </div>
+    <div class="row g-3 mb-4" id="sbtiProgressCards"></div>
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0" aria-label="SBTi目標テーブル">
+            <thead>
+              <tr>
+                <th scope="col">Scope</th>
+                <th scope="col">目標名</th>
+                <th scope="col">基準年</th>
+                <th scope="col">目標年</th>
+                <th scope="col" class="text-end">基準排出量(t)</th>
+                <th scope="col" class="text-end">削減率</th>
+                <th scope="col">状態</th>
+                <th scope="col" class="text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="sbtiTableBody">
+              <tr><td colspan="8" class="text-center py-4 text-muted">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <!-- ===== Project Modal (create/edit) ===== -->
@@ -785,6 +918,9 @@
               <option value="machine">建機</option>
               <option value="ship">船舶</option>
               <option value="waste">廃棄物</option>
+              <option value="business_travel">出張交通</option>
+              <option value="commuting">通勤</option>
+              <option value="water">水</option>
               <option value="other">その他</option>
             </select>
           </div>
@@ -863,6 +999,119 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
         <button type="button" class="btn btn-primary" onclick="submitUserForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Feedback Modal ===== -->
+<div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="feedbackModalLabel">フィードバック登録</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <form id="feedbackForm" novalidate>
+          <input type="hidden" id="eFeedbackId">
+          <div class="mb-3">
+            <label for="eFeedbackProject" class="form-label">工事 <span class="text-danger">*</span></label>
+            <select id="eFeedbackProject" class="form-select project-select" required></select>
+          </div>
+          <div class="mb-3">
+            <label for="eFeedbackMonth" class="form-label">対象月 <span class="text-danger">*</span></label>
+            <input type="month" id="eFeedbackMonth" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label for="eFeedbackCategory" class="form-label">カテゴリ</label>
+            <select id="eFeedbackCategory" class="form-select">
+              <option value="">-- 選択 --</option>
+              <option value="fuel">燃料</option>
+              <option value="power">電力</option>
+              <option value="material">材料</option>
+              <option value="transport">輸送</option>
+              <option value="machine">建機</option>
+              <option value="ship">船舶</option>
+              <option value="waste">廃棄物</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="eFeedbackContent" class="form-label">内容 <span class="text-danger">*</span></label>
+            <textarea id="eFeedbackContent" class="form-control" rows="3" required maxlength="1000"></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="eFeedbackStatus" class="form-label">状態</label>
+            <select id="eFeedbackStatus" class="form-select">
+              <option value="open">未対応</option>
+              <option value="acknowledged">対応中</option>
+              <option value="resolved">解決済み</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitFeedbackForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SBTi Modal ===== -->
+<div class="modal fade" id="sbtiModal" tabindex="-1" aria-labelledby="sbtiModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="sbtiModalLabel">SBTi目標の登録</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <form id="sbtiForm" novalidate>
+          <input type="hidden" id="eSbtiId">
+          <div class="mb-3">
+            <label for="eSbtiScope" class="form-label">Scope</label>
+            <select id="eSbtiScope" class="form-select">
+              <option value="scope1">Scope1 直接排出</option>
+              <option value="scope2">Scope2 エネルギー間接排出</option>
+              <option value="scope3">Scope3 その他間接排出</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="eSbtiName" class="form-label">目標名 <span class="text-danger">*</span></label>
+            <input type="text" id="eSbtiName" class="form-control" required maxlength="200"
+                   placeholder="例: Scope1+2 42%削減（2024→2030）">
+          </div>
+          <div class="mb-3">
+            <label for="eSbtiDesc" class="form-label">説明</label>
+            <textarea id="eSbtiDesc" class="form-control" rows="2" maxlength="500"></textarea>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label for="eSbtiBaseYear" class="form-label">基準年</label>
+              <input type="number" id="eSbtiBaseYear" class="form-control" min="2000" max="2100" required>
+            </div>
+            <div class="col-6">
+              <label for="eSbtiTargetYear" class="form-label">目標年</label>
+              <input type="number" id="eSbtiTargetYear" class="form-control" min="2000" max="2100" required>
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label for="eSbtiBaseKg" class="form-label">基準排出量 (t-CO2)</label>
+              <input type="number" id="eSbtiBaseKg" class="form-control" min="0" step="any" required>
+            </div>
+            <div class="col-6">
+              <label for="eSbtiReduction" class="form-label">削減率 (%)</label>
+              <input type="number" id="eSbtiReduction" class="form-control" min="0" max="100" step="any" required>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitSbtiForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
       </div>
     </div>
   </div>

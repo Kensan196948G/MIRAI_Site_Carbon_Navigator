@@ -103,6 +103,27 @@ flowchart LR
 | link | string | 遷移先 |
 | is_read | boolean | 既読状態 |
 
+### site_feedbacks
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| feedback_id | string | フィードバックID |
+| project_id / target_month | string | 工事・対象月 |
+| category | string | カテゴリ |
+| content | text | 内容 |
+| status | string | open / acknowledged / resolved |
+
+### sbti_targets
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| target_id | string | 目標ID |
+| scope | string | scope1 / scope2 / scope3 |
+| base_year / target_year | int | 基準年・目標年 |
+| base_emissions_kg | number | 基準排出量 |
+| reduction_percent | number | 削減率(%) |
+| is_active | boolean | 有効/無効 |
+
 ## 3. 入力検証
 
 | 検証 | 内容 |
@@ -159,3 +180,6 @@ flowchart TD
 - 前月比・3ヶ月平均比の異常値検知が正しいか
 - 通知の宛先ロール・既読管理が正しいか
 - PostgreSQL等の別DBで起動できるか
+- デモデータ生成が冪等で、削除で完全に戻るか
+- Scope分類・Scope別集計が正しいか
+- SBTi進捗（達成率・順調判定）が正しいか

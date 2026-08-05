@@ -53,7 +53,7 @@ frontend/
 └── static/
     ├── css/style.css
     └── js/app.js
-tests/                   # pytest (101件)
+tests/                   # pytest (114件)
 ```
 
 ## 🚀 クイックスタート
@@ -107,6 +107,10 @@ docker-compose up --build
 | F-14 | 通知（ベル・未読管理・イベント通知） | ✅ 実装済み |
 | F-15 | PostgreSQL対応（Docker Compose構成） | ✅ 実装済み |
 | F-16 | ユーザー管理画面（作成・編集・有効/無効化） | ✅ 実装済み |
+| F-17 | PoCデモデータ生成（2現場×7ヶ月、ワンクリック） | ✅ 実装済み |
+| F-18 | 現場フィードバック（登録・対応状況管理） | ✅ 実装済み |
+| F-19 | SBTi目標管理（Scope別削減目標・進捗・順調判定） | ✅ 実装済み |
+| F-20 | Scope3拡張（GHG Protocol分類・Scope別集計・出張/通勤/水） | ✅ 実装済み |
 
 ## 🧮 算定方式
 
@@ -127,8 +131,21 @@ CO2排出量 (kg) = 活動量 × 排出係数
 | transport (輸送) | 一般輸送 | 0.172 kg-CO2/t-km |
 | machine (建機) | 油圧ショベル | 18.5 kg-CO2/h (目安) |
 | ship (船舶) | 作業船 | 120 kg-CO2/h (目安) |
+| business_travel (出張) | 出張(鉄道) | 0.021 kg-CO2/人-km |
+| commuting (通勤) | 通勤(車) | 0.130 kg-CO2/人-km |
+| water (水) | 上水道 | 0.360 kg-CO2/m3 (目安) |
 
 > 出典: 環境省 排出係数ほか（seed_data.py にて投入）
+
+### GHG Protocol Scope 分類
+
+| Scope | 対象カテゴリ |
+|---|---|
+| Scope1 直接排出 | fuel（燃料）、machine（建機）、ship（船舶） |
+| Scope2 エネルギー間接排出 | power（電力） |
+| Scope3 その他間接排出 | material（材料）、transport（輸送）、waste（廃棄物）、business_travel（出張）、commuting（通勤）、water（水） |
+
+Scope別集計は算定画面のカード、Excel/CSV/PDFレポートの「Scope別集計」で確認できます。
 
 ## 🔌 主なAPI
 
@@ -150,11 +167,17 @@ CO2排出量 (kg) = 活動量 × 排出係数
 | GET | /api/emissions/trend | 月次トレンド | viewer〜 |
 | GET | /api/emissions/missing-factors | 係数未設定一覧 | viewer〜 |
 | GET | /api/emissions/reduction/{project}/{month} | 削減ナビ | viewer〜 |
+| GET | /api/emissions/scope-summary?project_id=&target_month=&year= | Scope別集計 | viewer〜 |
 | GET | /api/reports/monthly/{project}/{month}?format=xlsx\|csv\|pdf | レポート出力 | viewer〜 |
 | GET | /api/emissions/benchmark?project_id=&target_month= | 同工種ベンチマーク | viewer〜 |
 | GET | /api/emissions/anomalies?project_id=&target_month= | 異常値検知 | viewer〜 |
 | GET | /api/notifications | 通知一覧（未読フィルタ可） | viewer〜 |
 | PUT | /api/notifications/{id}/read, /api/notifications/read-all | 既読管理 | viewer〜 |
+| GET/POST/PUT/DELETE | /api/feedbacks | 現場フィードバック | 閲覧: viewer〜 / 編集: site〜 / 削除: reviewer〜 |
+| GET | /api/sbti/progress | SBTi進捗 | viewer〜 |
+| GET/POST/PUT/DELETE | /api/sbti/targets | SBTi目標管理 | 管理: admin / 閲覧: viewer〜 |
+| GET | /api/demo/status | デモデータ状態 | viewer〜 |
+| POST/DELETE | /api/demo/generate, /api/demo/clear | デモデータ生成/削除 | admin |
 | GET/POST/PUT/DELETE | /api/actions | 削減アクション管理 | 閲覧: viewer〜 / 編集: site〜 / 削除: reviewer〜 |
 | GET | /api/audit-logs | 監査ログ | reviewer〜 |
 | GET/POST/PUT | /api/users | ユーザー管理 | admin |
@@ -184,7 +207,7 @@ PostgreSQL は `docker-compose.yml` の `db` サービスで自動起動し、ap
 ```bash
 pip install -r requirements.txt pytest httpx
 pytest tests/ -v
-# → 101 passed
+# → 114 passed
 ```
 
 ## 🗺️ ロードマップ
@@ -207,8 +230,9 @@ gantt
   PostgreSQL対応           :done, d2, after d1, 1d
   ユーザー管理画面          :done, d3, after d2, 1d
   section Phase 5 (次フェーズ)
-  2現場PoC                :e1, 2026-09-01, 30d
-  SBTi目標連携・Scope3拡張 :e2, after e1, 21d
+  PoCデモデータ・フィードバック :done, e1, 2026-08-05, 2d
+  SBTi目標・Scope3拡張        :done, e2, after e1, 2d
+  2現場実地PoC                :e3, 2026-09-01, 30d
 ```
 
 ## 📄 関連ドキュメント

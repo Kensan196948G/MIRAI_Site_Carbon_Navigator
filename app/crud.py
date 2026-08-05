@@ -105,6 +105,9 @@ def delete_project(db: Session, project_id: str, actor: str) -> bool:
     db.query(models.ReductionAction).filter(
         models.ReductionAction.project_id == project_id
     ).delete()
+    db.query(models.SiteFeedback).filter(
+        models.SiteFeedback.project_id == project_id
+    ).delete()
     db.query(models.ActivityData).filter(
         models.ActivityData.project_id == project_id
     ).delete()
@@ -650,6 +653,148 @@ def mark_all_notifications_read(db: Session, user: models.User) -> int:
         count += 1
     db.commit()
     return count
+
+
+# ---------------------------------------------------------------------------
+# Site feedback
+# ---------------------------------------------------------------------------
+
+def create_site_feedback(
+    db: Session, feedback: schemas.SiteFeedbackCreate, actor: str
+):
+    db_feedback = models.SiteFeedback(
+        feedback_id=_new_id(),
+        created_at=utcnow(),
+        created_by=actor,
+        status="open",
+        **feedback.model_dump(),
+    )
+    db.add(db_feedback)
+    db.commit()
+    db.refresh(db_feedback)
+    add_audit_log(db, actor, "create", "site_feedback", db_feedback.feedback_id)
+    project = get_project(db, feedback.project_id)
+    add_notification(
+        db,
+        message=f"現場フィードバックが登録されました: {project.name if project else feedback.project_id} / {db_feedback.content[:60]}",
+        recipient_role="reviewer",
+    )
+    return db_feedback
+
+
+def list_site_feedbacks(
+    db: Session,
+    project_id: Optional[str] = None,
+    target_month: Optional[str] = None,
+    status: Optional[str] = None,
+):
+    query = db.query(models.SiteFeedback)
+    if project_id:
+        query = query.filter(models.SiteFeedback.project_id == project_id)
+    if target_month:
+        query = query.filter(models.SiteFeedback.target_month == target_month)
+    if status:
+        query = query.filter(models.SiteFeedback.status == status)
+    return query.order_by(models.SiteFeedback.created_at.desc()).all()
+
+
+def get_site_feedback(db: Session, feedback_id: str):
+    return (
+        db.query(models.SiteFeedback)
+        .filter(models.SiteFeedback.feedback_id == feedback_id)
+        .first()
+    )
+
+
+def update_site_feedback(
+    db: Session,
+    feedback_id: str,
+    updates: schemas.SiteFeedbackUpdate,
+    actor: str,
+):
+    feedback = get_site_feedback(db, feedback_id)
+    if not feedback:
+        return None
+    for key, value in updates.model_dump(exclude_unset=True).items():
+        if value is not None:
+            setattr(feedback, key, value)
+    feedback.updated_at = utcnow()
+    feedback.updated_by = actor
+    db.commit()
+    db.refresh(feedback)
+    add_audit_log(db, actor, "update", "site_feedback", feedback_id)
+    return feedback
+
+
+def delete_site_feedback(db: Session, feedback_id: str, actor: str) -> bool:
+    feedback = get_site_feedback(db, feedback_id)
+    if not feedback:
+        return False
+    db.delete(feedback)
+    db.commit()
+    add_audit_log(db, actor, "delete", "site_feedback", feedback_id)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# SBTi targets
+# ---------------------------------------------------------------------------
+
+def create_sbti_target(db: Session, target: schemas.SbtiTargetCreate, actor: str):
+    db_target = models.SbtiTarget(
+        target_id=_new_id(),
+        created_at=utcnow(),
+        is_active=True,
+        **target.model_dump(),
+    )
+    db.add(db_target)
+    db.commit()
+    db.refresh(db_target)
+    add_audit_log(db, actor, "create", "sbti_target", db_target.target_id, db_target.name)
+    return db_target
+
+
+def list_sbti_targets(db: Session) -> list[models.SbtiTarget]:
+    return db.query(models.SbtiTarget).order_by(
+        models.SbtiTarget.scope, models.SbtiTarget.base_year
+    ).all()
+
+
+def get_sbti_target(db: Session, target_id: str):
+    return (
+        db.query(models.SbtiTarget)
+        .filter(models.SbtiTarget.target_id == target_id)
+        .first()
+    )
+
+
+def update_sbti_target(
+    db: Session,
+    target_id: str,
+    updates: schemas.SbtiTargetUpdate,
+    actor: str,
+):
+    target = get_sbti_target(db, target_id)
+    if not target:
+        return None
+    for key, value in updates.model_dump(exclude_unset=True).items():
+        if value is not None:
+            setattr(target, key, value)
+    target.updated_at = utcnow()
+    db.commit()
+    db.refresh(target)
+    add_audit_log(db, actor, "update", "sbti_target", target_id)
+    return target
+
+
+def delete_sbti_target(db: Session, target_id: str, actor: str) -> bool:
+    target = get_sbti_target(db, target_id)
+    if not target:
+        return False
+    db.delete(target)
+    db.commit()
+    add_audit_log(db, actor, "delete", "sbti_target", target_id)
+    return True
 
 
 def list_reduction_actions(

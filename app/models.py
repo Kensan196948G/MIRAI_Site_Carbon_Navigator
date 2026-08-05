@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Text,
+    Integer,
 )
 from sqlalchemy.orm import relationship
 from .database import Base
@@ -141,3 +142,36 @@ class Notification(Base):
     link = Column(String, nullable=True)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True))
+
+
+class SiteFeedback(Base):
+    __tablename__ = "site_feedbacks"
+
+    feedback_id = Column(String, primary_key=True)
+    project_id = Column(String, ForeignKey("projects.project_id"), nullable=False)
+    target_month = Column(String, nullable=False)
+    category = Column(String, nullable=True)
+    content = Column(Text, nullable=False)
+    status = Column(String, default="open")  # open / acknowledged / resolved
+    created_by = Column(String)
+    created_at = Column(DateTime(timezone=True))
+    updated_by = Column(String, nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=True)
+
+    project = relationship("Project")
+
+
+class SbtiTarget(Base):
+    __tablename__ = "sbti_targets"
+
+    target_id = Column(String, primary_key=True)
+    scope = Column(String, nullable=False)  # scope1 / scope2 / scope3
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    base_year = Column(Integer, nullable=False)
+    target_year = Column(Integer, nullable=False)
+    base_emissions_kg = Column(Float, nullable=False)
+    reduction_percent = Column(Float, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True))
+    updated_at = Column(DateTime(timezone=True), nullable=True)

@@ -19,6 +19,7 @@ from reportlab.platypus import (
 )
 
 from .reduction import get_reduction_suggestions
+from .scope import scope_summary_from_results
 
 try:
     pdfmetrics.registerFont(UnicodeCIDFont("HeiseiKakuGo-W5"))
@@ -137,6 +138,31 @@ def generate_monthly_report_excel(project, month: str, results_summary: list[dic
     for col_idx, width in enumerate(col_widths, start=1):
         ws2.column_dimensions[get_column_letter(col_idx)].width = width
 
+    # --- Sheet 3: Scope別集計 ---
+    ws3 = wb.create_sheet(title="Scope別集計")
+    scope_rows = scope_summary_from_results(results_summary)
+    ws3["A1"] = "Scope別CO2排出量サマリー"
+    ws3["A1"].font = Font(bold=True, size=12)
+    scope_headers = ["Scope", "CO2排出量 (kg-CO2)", "CO2排出量 (t-CO2)"]
+    for col, h in enumerate(scope_headers, start=1):
+        cell = ws3.cell(row=3, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = thin_border
+    for idx, item in enumerate(scope_rows, start=4):
+        ws3.cell(row=idx, column=1, value=item["label"]).border = thin_border
+        kg_cell = ws3.cell(row=idx, column=2, value=round(item["total_co2_kg"], 3))
+        kg_cell.border = thin_border
+        kg_cell.number_format = "#,##0.000"
+        kg_cell.alignment = Alignment(horizontal="right")
+        t_cell = ws3.cell(row=idx, column=3, value=round(item["total_co2_t"], 4))
+        t_cell.border = thin_border
+        t_cell.number_format = "#,##0.0000"
+        t_cell.alignment = Alignment(horizontal="right")
+    ws3.column_dimensions["A"].width = 35
+    ws3.column_dimensions["B"].width = 22
+    ws3.column_dimensions["C"].width = 22
+
     # Save to bytes
     buffer = io.BytesIO()
     wb.save(buffer)
@@ -153,6 +179,10 @@ def generate_monthly_report_csv(project, month: str, results_summary: list[dict]
     writer.writerow(["工種", getattr(project, "work_type", "")])
     writer.writerow(["対象月", month])
     writer.writerow(["レポート作成日", datetime.date.today().strftime("%Y-%m-%d")])
+    writer.writerow([])
+    writer.writerow(["=== Scope別集計 ==="])
+    for item in scope_summary_from_results(results_summary):
+        writer.writerow([item["label"], round(item["total_co2_kg"], 3), round(item["total_co2_t"], 4)])
     writer.writerow([])
     writer.writerow(["カテゴリ", "品目", "数量", "単位", "排出係数 (kg-CO2/unit)", "CO2排出量 (kg-CO2)"])
     for r in results_summary:
@@ -330,6 +360,21 @@ def generate_monthly_report_pdf(project, month: str, results_summary: list[dict]
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
     elements.append(detail_table)
+
+    elements.append(Paragraph("Scope別集計", h2_style))
+    scope_rows = [["Scope", "CO2排出量 (kg-CO2)", "CO2排出量 (t-CO2)"]]
+    for item in scope_summary_from_results(results_summary):
+        scope_rows.append([item["label"], f"{item['total_co2_kg']:,.3f}", f"{item['total_co2_t']:,.4f}"])
+    scope_table = Table(scope_rows, colWidths=[80 * mm, 47 * mm, 47 * mm])
+    scope_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), _JAPANESE_FONT),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E75B6")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+    ]))
+    elements.append(scope_table)
 
     suggestions = get_reduction_suggestions(
         [{"category": r.get("category"), "co2_kg": r.get("co2_kg")} for r in results_summary]

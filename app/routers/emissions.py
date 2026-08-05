@@ -6,6 +6,7 @@ from ..database import get_db
 from ..services.calculator import calculate_all_for_month
 from ..services.reduction import get_reduction_suggestions
 from ..services.analysis import detect_anomalies, get_benchmark
+from ..services.scope import scope_summary_from_results
 from ..security import get_current_user
 
 router = APIRouter(prefix="/api/emissions", tags=["emissions"])
@@ -158,6 +159,23 @@ def get_anomalies_endpoint(
     if not crud.get_project(db, project_id):
         raise HTTPException(status_code=404, detail="Project not found")
     return detect_anomalies(db, project_id, target_month)
+
+
+@router.get("/scope-summary", response_model=list[schemas.ScopeSummaryItem])
+def get_scope_summary(
+    project_id: Optional[str] = None,
+    target_month: Optional[str] = None,
+    year: Optional[int] = None,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    results = crud.get_results_by_project(db, project_id=project_id, target_month=target_month)
+    if year:
+        prefix = f"{year}-"
+        results = [r for r in results if r.activity.target_month.startswith(prefix)]
+    return scope_summary_from_results(
+        [{"category": r.activity.category, "co2_kg": r.co2_kg} for r in results]
+    )
 
 
 @router.get("/reduction/{project_id}/{target_month}", response_model=list[schemas.ReductionSuggestion])

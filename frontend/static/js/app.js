@@ -15,6 +15,8 @@ const CATEGORY_LABELS = {
   ship: '船舶',
   waste: '廃棄物',
   water: '水',
+  business_travel: '出張交通',
+  commuting: '通勤',
   other: 'その他',
 };
 
@@ -28,6 +30,9 @@ const CATEGORY_COLORS = {
   machine: '#8e44ad',
   ship: '#16a085',
   waste: '#c0392b',
+  water: '#3498db',
+  business_travel: '#9b59b6',
+  commuting: '#e84393',
   other: '#95a5a6',
 };
 
@@ -432,6 +437,8 @@ function navigateTo(page) {
     case 'actions': populateProjectSelects().then(loadActions); break;
     case 'audit': loadAuditLogs(); break;
     case 'users': loadUsers(); break;
+    case 'feedbacks': populateProjectSelects().then(loadFeedbacks); break;
+    case 'sbti': loadSbti(); break;
   }
 }
 
@@ -445,8 +452,92 @@ async function loadDashboard() {
     document.getElementById('dashApproved').textContent = formatNumber(data.approved_activity_count, 0);
 
     renderDashboardCharts(data);
+    loadDashboardSbti();
+    loadDemoStatus();
   } catch (err) {
     showToast(`ダッシュボード取得失敗: ${err.message}`, 'danger');
+  }
+}
+
+async function loadDashboardSbti() {
+  const body = document.getElementById('dashSbtiBody');
+  if (!body) return;
+  try {
+    const items = await fetchJSON('/api/sbti/progress');
+    while (body.firstChild) body.removeChild(body.firstChild);
+    if (!items || !items.length) {
+      const p = document.createElement('p');
+      p.className = 'text-muted small mb-0';
+      p.textContent = 'SBTi目標が未設定です。「SBTi」ページから登録できます。';
+      body.appendChild(p);
+      return;
+    }
+    for (const item of items) {
+      const row = document.createElement('div');
+      row.className = 'mb-2';
+      const label = document.createElement('div');
+      label.className = 'small d-flex justify-content-between';
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = item.name;
+      const pctSpan = document.createElement('span');
+      pctSpan.textContent = `達成 ${Math.max(0, item.reduction_achieved_percent).toFixed(1)}% / 目標 ${item.reduction_percent}%`;
+      pctSpan.className = item.on_track ? 'text-success fw-bold' : 'text-danger fw-bold';
+      label.appendChild(nameSpan);
+      label.appendChild(pctSpan);
+      const progress = document.createElement('div');
+      progress.className = 'progress';
+      progress.style.height = '8px';
+      const bar = document.createElement('div');
+      bar.className = 'progress-bar ' + (item.on_track ? 'bg-success' : 'bg-danger');
+      bar.style.width = `${Math.min(100, Math.max(0, (item.progress_ratio ?? 0) * 100))}%`;
+      progress.appendChild(bar);
+      row.appendChild(label);
+      row.appendChild(progress);
+      body.appendChild(row);
+    }
+  } catch (_) {}
+}
+
+async function loadDemoStatus() {
+  const el = document.getElementById('demoStatusText');
+  if (!el) return;
+  try {
+    const data = await fetchJSON('/api/demo/status');
+    if (data.project_count > 0) {
+      el.textContent = `デモデータ: 生成済み（工事${data.project_count}件 / 活動量${data.activity_count}件 / フィードバック${data.feedback_count}件）`;
+    } else {
+      el.textContent = 'デモデータ: 未生成';
+    }
+  } catch (_) {}
+}
+
+async function generateDemoData() {
+  if (!window.confirm('2現場×7ヶ月のPoCデモデータを生成しますか？（既存デモがある場合はスキップされます）')) return;
+  showLoading();
+  try {
+    const data = await fetchJSON('/api/demo/generate', { method: 'POST' });
+    showToast(`デモデータ生成完了: 工事${data.project_count}件 / 活動量${data.activity_count}件`, 'success');
+    loadDemoStatus();
+    loadDashboard();
+  } catch (err) {
+    showToast(`生成失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function clearDemoData() {
+  if (!window.confirm('デモデータをすべて削除しますか？')) return;
+  showLoading();
+  try {
+    const data = await fetchJSON('/api/demo/clear', { method: 'DELETE' });
+    showToast(`デモデータを削除しました（${data.removed}件）`, 'success');
+    loadDemoStatus();
+    loadDashboard();
+  } catch (err) {
+    showToast(`削除失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
   }
 }
 
@@ -949,6 +1040,7 @@ async function executeCalculation() {
     const summary = await fetchJSON(`/api/emissions/summary?${new URLSearchParams({ project_id: projectId, target_month: month })}`);
     renderCalculationResults(result, summary);
     renderEmissionChart(summary);
+    await loadScopeSummary(projectId, month);
     await loadMissingFactors(projectId, month);
     await Promise.all([loadBenchmark(projectId, month), loadAnomalies(projectId, month)]);
 
@@ -967,6 +1059,22 @@ async function executeCalculation() {
     showToast(`算定失敗: ${err.message}`, 'danger');
   } finally {
     hideLoading();
+  }
+}
+
+async function loadScopeSummary(projectId, month) {
+  try {
+    const params = new URLSearchParams({ project_id: projectId, target_month: month });
+    const items = await fetchJSON(`/api/emissions/scope-summary?${params}`);
+    const byScope = {};
+    for (const item of items) byScope[item.scope] = item;
+    document.getElementById('statScope1').textContent = formatNumber(byScope.scope1 ? byScope.scope1.total_co2_t : 0, 3);
+    document.getElementById('statScope2').textContent = formatNumber(byScope.scope2 ? byScope.scope2.total_co2_t : 0, 3);
+    document.getElementById('statScope3').textContent = formatNumber(byScope.scope3 ? byScope.scope3.total_co2_t : 0, 3);
+  } catch (_) {
+    document.getElementById('statScope1').textContent = '-';
+    document.getElementById('statScope2').textContent = '-';
+    document.getElementById('statScope3').textContent = '-';
   }
 }
 
@@ -1641,6 +1749,288 @@ async function toggleUserActive(user) {
     loadUsers();
   } catch (err) {
     showToast(`操作失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+// ===== Site Feedbacks =====
+async function loadFeedbacks() {
+  const tbody = document.getElementById('feedbacksTableBody');
+  setTbodyRow(tbody, makeLoadingRow(7));
+  try {
+    const projectId = document.getElementById('fbProjectSelect').value;
+    const status = document.getElementById('fbStatusFilter').value;
+    const params = new URLSearchParams();
+    if (projectId) params.set('project_id', projectId);
+    if (status) params.set('status', status);
+    const qs = params.toString();
+    const feedbacks = await fetchJSON(`/api/feedbacks${qs ? `?${qs}` : ''}`);
+    await renderFeedbacksTable(feedbacks);
+  } catch (err) {
+    setTbodyRow(tbody, makeErrorRow(7, err.message));
+  }
+}
+
+async function renderFeedbacksTable(feedbacks) {
+  const tbody = document.getElementById('feedbacksTableBody');
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+  if (!feedbacks || feedbacks.length === 0) {
+    tbody.appendChild(makeEmptyRow(7, '💬', 'フィードバックがありません。「フィードバック登録」から追加してください。'));
+    return;
+  }
+  const projects = await fetchJSON('/api/projects').catch(() => []);
+  const projectNames = {};
+  for (const p of projects) projectNames[p.project_id] = p.name;
+  const statusLabels = { open: '未対応', acknowledged: '対応中', resolved: '解決済み' };
+  const statusClasses = { open: 'bg-danger', acknowledged: 'bg-warning', resolved: 'bg-success' };
+
+  for (const f of feedbacks) {
+    const tr = document.createElement('tr');
+    tr.appendChild(td(projectNames[f.project_id] || f.project_id));
+    tr.appendChild(td(f.target_month));
+    const catTd = document.createElement('td');
+    catTd.appendChild(makeCategoryBadge(f.category || 'other'));
+    tr.appendChild(catTd);
+    tr.appendChild(td(f.content));
+    tr.appendChild(td(makeBadge(statusLabels[f.status] || f.status, statusClasses[f.status] || 'bg-secondary')));
+    tr.appendChild(td(f.created_by));
+    const actionTd = document.createElement('td');
+    actionTd.className = 'text-center';
+    if (hasRole('site')) {
+      actionTd.appendChild(makeActionButton('', 'bi-pencil', () => openFeedbackModal(f), 'btn-outline-primary btn-icon', '編集'));
+    }
+    if (hasRole('reviewer')) {
+      actionTd.appendChild(makeActionButton('', 'bi-trash', () => deleteFeedback(f), 'btn-outline-danger btn-icon', '削除'));
+    }
+    tr.appendChild(actionTd);
+    tbody.appendChild(tr);
+  }
+}
+
+async function openFeedbackModal(feedback = null) {
+  await populateProjectSelects();
+  const form = document.getElementById('feedbackForm');
+  form.reset();
+  document.getElementById('eFeedbackId').value = feedback ? feedback.feedback_id : '';
+  if (feedback) {
+    document.getElementById('eFeedbackProject').value = feedback.project_id;
+    document.getElementById('eFeedbackMonth').value = feedback.target_month;
+    document.getElementById('eFeedbackCategory').value = feedback.category || '';
+    document.getElementById('eFeedbackContent').value = feedback.content;
+    document.getElementById('eFeedbackStatus').value = feedback.status;
+    document.getElementById('feedbackModalLabel').textContent = 'フィードバックの編集';
+  } else {
+    const now = new Date();
+    document.getElementById('eFeedbackMonth').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    document.getElementById('eFeedbackStatus').value = 'open';
+    document.getElementById('feedbackModalLabel').textContent = 'フィードバック登録';
+  }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('feedbackModal')).show();
+}
+
+async function submitFeedbackForm() {
+  const form = document.getElementById('feedbackForm');
+  if (!form.checkValidity()) { form.reportValidity(); return; }
+  const editId = document.getElementById('eFeedbackId').value;
+  const data = {
+    project_id: document.getElementById('eFeedbackProject').value,
+    target_month: document.getElementById('eFeedbackMonth').value,
+    category: document.getElementById('eFeedbackCategory').value || null,
+    content: document.getElementById('eFeedbackContent').value.trim(),
+    status: document.getElementById('eFeedbackStatus').value,
+  };
+  showLoading();
+  try {
+    if (editId) {
+      await fetchJSON(`/api/feedbacks/${editId}`, { method: 'PUT', body: data });
+      showToast('フィードバックを更新しました', 'success');
+    } else {
+      await fetchJSON('/api/feedbacks', { method: 'POST', body: data });
+      showToast('フィードバックを登録しました', 'success');
+    }
+    bootstrap.Modal.getInstance(document.getElementById('feedbackModal')).hide();
+    loadFeedbacks();
+    refreshUnreadBadge();
+  } catch (err) {
+    showToast(`保存失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function deleteFeedback(feedback) {
+  if (!window.confirm('このフィードバックを削除しますか？')) return;
+  showLoading();
+  try {
+    await fetchJSON(`/api/feedbacks/${feedback.feedback_id}`, { method: 'DELETE' });
+    showToast('フィードバックを削除しました', 'success');
+    loadFeedbacks();
+  } catch (err) {
+    showToast(`削除失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+// ===== SBTi =====
+async function loadSbti() {
+  const tbody = document.getElementById('sbtiTableBody');
+  setTbodyRow(tbody, makeLoadingRow(8));
+  try {
+    const [targets, progress] = await Promise.all([
+      fetchJSON('/api/sbti/targets'),
+      fetchJSON('/api/sbti/progress'),
+    ]);
+    renderSbtiTable(targets);
+    renderSbtiProgressCards(progress);
+  } catch (err) {
+    setTbodyRow(tbody, makeErrorRow(8, err.message));
+  }
+}
+
+function renderSbtiTable(targets) {
+  const tbody = document.getElementById('sbtiTableBody');
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+  if (!targets || targets.length === 0) {
+    tbody.appendChild(makeEmptyRow(8, '🎯', 'SBTi目標が未設定です。「目標登録」から追加してください。'));
+    return;
+  }
+  const scopeLabels = { scope1: 'Scope1', scope2: 'Scope2', scope3: 'Scope3' };
+  for (const t of targets) {
+    const tr = document.createElement('tr');
+    tr.appendChild(td(makeBadge(scopeLabels[t.scope] || t.scope,
+      t.scope === 'scope1' ? 'bg-danger' : t.scope === 'scope2' ? 'bg-warning' : 'bg-info')));
+    tr.appendChild(td(t.name));
+    tr.appendChild(td(t.base_year));
+    tr.appendChild(td(t.target_year));
+    tr.appendChild(td(formatNumber(t.base_emissions_kg / 1000, 3), 'text-end'));
+    tr.appendChild(td(`${formatNumber(t.reduction_percent, 1)}%`, 'text-end'));
+    tr.appendChild(td(makeBadge(t.is_active ? '有効' : '無効', t.is_active ? 'bg-success' : 'bg-secondary')));
+    const actionTd = document.createElement('td');
+    actionTd.className = 'text-center';
+    if (hasRole('admin')) {
+      actionTd.appendChild(makeActionButton('', 'bi-pencil', () => openSbtiModal(t), 'btn-outline-primary btn-icon', '編集'));
+      actionTd.appendChild(makeActionButton('', 'bi-trash', () => deleteSbtiTarget(t), 'btn-outline-danger btn-icon', '削除'));
+    } else {
+      actionTd.textContent = '-';
+    }
+    tr.appendChild(actionTd);
+    tbody.appendChild(tr);
+  }
+}
+
+function renderSbtiProgressCards(progress) {
+  const container = document.getElementById('sbtiProgressCards');
+  while (container.firstChild) container.removeChild(container.firstChild);
+  if (!progress || !progress.length) {
+    const p = document.createElement('p');
+    p.className = 'text-muted small';
+    p.textContent = '進捗表示対象の目標がありません。';
+    container.appendChild(p);
+    return;
+  }
+  for (const item of progress) {
+    const col = document.createElement('div');
+    col.className = 'col-md-4';
+    const card = document.createElement('div');
+    card.className = 'card h-100';
+    const header = document.createElement('div');
+    header.className = 'card-header';
+    header.textContent = item.name;
+    const body = document.createElement('div');
+    body.className = 'card-body';
+    const currentT = (item.current_emissions_kg / 1000).toFixed(2);
+    const targetT = (item.target_emissions_kg / 1000).toFixed(2);
+    const p1 = document.createElement('div');
+    p1.className = 'small';
+    p1.textContent = `現在 ${currentT} t-CO2 / 目標 ${targetT} t-CO2（基準 ${(item.base_emissions_kg / 1000).toFixed(2)} t-CO2）`;
+    const p2 = document.createElement('div');
+    p2.className = 'small mt-1';
+    const badge = document.createElement('span');
+    badge.className = `badge ${item.on_track ? 'bg-success' : 'bg-danger'}`;
+    badge.textContent = item.on_track ? '順調' : '遅延';
+    p2.appendChild(document.createTextNode(`達成率 ${Math.max(0, item.reduction_achieved_percent).toFixed(1)}% / ${item.reduction_percent}% `));
+    p2.appendChild(badge);
+    const progressBar = document.createElement('div');
+    progressBar.className = 'progress mt-2';
+    progressBar.style.height = '10px';
+    const bar = document.createElement('div');
+    bar.className = 'progress-bar ' + (item.on_track ? 'bg-success' : 'bg-danger');
+    bar.style.width = `${Math.min(100, Math.max(0, (item.progress_ratio ?? 0) * 100))}%`;
+    progressBar.appendChild(bar);
+    body.appendChild(p1);
+    body.appendChild(p2);
+    body.appendChild(progressBar);
+    card.appendChild(header);
+    card.appendChild(body);
+    col.appendChild(card);
+    container.appendChild(col);
+  }
+}
+
+function openSbtiModal(target = null) {
+  const form = document.getElementById('sbtiForm');
+  form.reset();
+  document.getElementById('eSbtiId').value = target ? target.target_id : '';
+  if (target) {
+    document.getElementById('eSbtiScope').value = target.scope;
+    document.getElementById('eSbtiName').value = target.name;
+    document.getElementById('eSbtiDesc').value = target.description || '';
+    document.getElementById('eSbtiBaseYear').value = target.base_year;
+    document.getElementById('eSbtiTargetYear').value = target.target_year;
+    document.getElementById('eSbtiBaseKg').value = Math.round(target.base_emissions_kg / 1000 * 100) / 100;
+    document.getElementById('eSbtiReduction').value = target.reduction_percent;
+    document.getElementById('sbtiModalLabel').textContent = 'SBTi目標の編集';
+  } else {
+    const now = new Date();
+    document.getElementById('eSbtiBaseYear').value = now.getFullYear() - 1;
+    document.getElementById('eSbtiTargetYear').value = now.getFullYear() + 5;
+    document.getElementById('sbtiModalLabel').textContent = 'SBTi目標の新規登録';
+  }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('sbtiModal')).show();
+}
+
+async function submitSbtiForm() {
+  const form = document.getElementById('sbtiForm');
+  if (!form.checkValidity()) { form.reportValidity(); return; }
+  const editId = document.getElementById('eSbtiId').value;
+  const data = {
+    scope: document.getElementById('eSbtiScope').value,
+    name: document.getElementById('eSbtiName').value.trim(),
+    description: document.getElementById('eSbtiDesc').value.trim() || null,
+    base_year: parseInt(document.getElementById('eSbtiBaseYear').value, 10),
+    target_year: parseInt(document.getElementById('eSbtiTargetYear').value, 10),
+    base_emissions_kg: parseFloat(document.getElementById('eSbtiBaseKg').value) * 1000,
+    reduction_percent: parseFloat(document.getElementById('eSbtiReduction').value),
+  };
+  showLoading();
+  try {
+    if (editId) {
+      await fetchJSON(`/api/sbti/targets/${editId}`, { method: 'PUT', body: data });
+      showToast('SBTi目標を更新しました', 'success');
+    } else {
+      await fetchJSON('/api/sbti/targets', { method: 'POST', body: data });
+      showToast('SBTi目標を登録しました', 'success');
+    }
+    bootstrap.Modal.getInstance(document.getElementById('sbtiModal')).hide();
+    loadSbti();
+  } catch (err) {
+    showToast(`保存失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function deleteSbtiTarget(target) {
+  if (!window.confirm(`SBTi目標「${target.name}」を削除しますか？`)) return;
+  showLoading();
+  try {
+    await fetchJSON(`/api/sbti/targets/${target.target_id}`, { method: 'DELETE' });
+    showToast('SBTi目標を削除しました', 'success');
+    loadSbti();
+  } catch (err) {
+    showToast(`削除失敗: ${err.message}`, 'danger');
   } finally {
     hideLoading();
   }
