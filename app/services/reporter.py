@@ -558,3 +558,113 @@ def generate_project_card_pdf(
     doc.build(elements)
     buffer.seek(0)
     return buffer.getvalue()
+
+
+def generate_annual_report_pdf(
+    year: int,
+    projects_summary: list[dict],
+    scope_totals: dict[str, float],
+    sbti_progress: list[dict],
+    actions_summary: dict,
+    credits_summary: dict,
+) -> bytes:
+    """Generate an annual environmental report PDF (年次環境報告書)."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=18 * mm,
+        leftMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+        title=f"年次環境報告書 {year}",
+        author="MIRAI Site Carbon Navigator",
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "TitleJP", parent=styles["Title"], fontName=_JAPANESE_FONT,
+        fontSize=18, leading=24, textColor=colors.HexColor("#1f5e33"), spaceAfter=4,
+    )
+    h2_style = ParagraphStyle(
+        "H2JP", parent=styles["Heading2"], fontName=_JAPANESE_FONT,
+        fontSize=13, leading=17, textColor=colors.HexColor("#2d7d46"),
+        spaceBefore=12, spaceAfter=6,
+    )
+    body_style = ParagraphStyle(
+        "BodyJP", parent=styles["BodyText"], fontName=_JAPANESE_FONT,
+        fontSize=9, leading=13,
+    )
+    _table_style = [
+        ("FONTNAME", (0, 0), (-1, -1), _JAPANESE_FONT),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2E75B6")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]
+
+    elements = []
+    elements.append(Paragraph(f"年次環境報告書 {year}", title_style))
+    elements.append(Paragraph(
+        f"作成日: {datetime.date.today().isoformat()}／MIRAI Site Carbon Navigator",
+        body_style,
+    ))
+    elements.append(Spacer(1, 6 * mm))
+
+    total_kg = sum(scope_totals.values())
+    elements.append(Paragraph(f"1. 全体サマリー（総排出量 {total_kg / 1000:,.3f} t-CO2）", h2_style))
+    overview_rows = [["Scope", "CO2排出量 (kg-CO2)", "CO2排出量 (t-CO2)"]]
+    for scope, label in [("scope1", "Scope1 直接排出"), ("scope2", "Scope2 エネルギー間接排出"), ("scope3", "Scope3 その他間接排出")]:
+        kg = scope_totals.get(scope, 0.0)
+        overview_rows.append([label, f"{kg:,.3f}", f"{kg / 1000:,.4f}"])
+    overview_table = Table(overview_rows, colWidths=[80 * mm, 47 * mm, 47 * mm])
+    overview_table.setStyle(TableStyle(_table_style))
+    elements.append(overview_table)
+
+    elements.append(Paragraph("2. 工事別排出量", h2_style))
+    project_rows = [["工事名", "支店", "工種", "CO2排出量 (t-CO2)"]]
+    for p in sorted(projects_summary, key=lambda x: -x["total_co2_kg"]):
+        project_rows.append([
+            p["name"], p["branch"] or "-", p["work_type"] or "-",
+            f"{p['total_co2_kg'] / 1000:,.4f}",
+        ])
+    project_table = Table(project_rows, colWidths=[70 * mm, 30 * mm, 35 * mm, 39 * mm])
+    project_table.setStyle(TableStyle(_table_style))
+    elements.append(project_table)
+
+    if sbti_progress:
+        elements.append(Paragraph("3. SBTi目標進捗", h2_style))
+        sbti_rows = [["目標", "Scope", "基準(t)", "目標(t)", "現状(t)", "達成率", "判定"]]
+        for item in sbti_progress:
+            sbti_rows.append([
+                item["name"],
+                item["scope"],
+                f"{item['base_emissions_kg'] / 1000:,.2f}",
+                f"{item['target_emissions_kg'] / 1000:,.2f}",
+                f"{item['current_emissions_kg'] / 1000:,.2f}",
+                f"{max(0.0, item['reduction_achieved_percent']):.1f}%",
+                "順調" if item["on_track"] else "遅延",
+            ])
+        sbti_table = Table(sbti_rows, colWidths=[45 * mm, 18 * mm, 25 * mm, 25 * mm, 25 * mm, 20 * mm, 16 * mm])
+        sbti_table.setStyle(TableStyle(_table_style))
+        elements.append(sbti_table)
+
+    elements.append(Paragraph("4. 削減アクション実績", h2_style))
+    actions_text = (
+        f"実施済み {actions_summary.get('implemented', 0)} 件／"
+        f"実績削減量合計 {actions_summary.get('total_reduction_kg', 0.0) / 1000:,.3f} t-CO2"
+    )
+    elements.append(Paragraph(actions_text, body_style))
+
+    elements.append(Paragraph("5. カーボンクレジット（オフセット）", h2_style))
+    credits_text = (
+        f"保有合計 {credits_summary.get('total_tco2', 0.0):,.3f} t-CO2"
+        f"（利用可能 {credits_summary.get('available_tco2', 0.0):,.3f} / "
+        f"充当済み {credits_summary.get('allocated_tco2', 0.0):,.3f} / "
+        f"無効化 {credits_summary.get('retired_tco2', 0.0):,.3f}）"
+    )
+    elements.append(Paragraph(credits_text, body_style))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer.getvalue()

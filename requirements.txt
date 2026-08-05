@@ -5,5 +5,7 @@ pydantic
 openpyxl
 reportlab
 psycopg2-binary
+pyotp
+PyJWT
 python-multipart
 aiofiles

@@ -495,6 +495,65 @@ def approve_activity(
     return activity
 
 
+def transition_approval(
+    db: Session,
+    activity_id: str,
+    action: str,
+    actor: str,
+    comment: Optional[str] = None,
+) -> Optional[models.ActivityData]:
+    """Multi-stage approval: draft -> site_submitted -> branch_approved -> env_approved."""
+    activity = get_activity(db, activity_id)
+    if not activity:
+        return None
+    current = activity.approval_status or "draft"
+    allowed = {
+        "submit": {"draft"},
+        "withdraw": {"site_submitted"},
+        "approve_branch": {"site_submitted"},
+        "reject": {"site_submitted", "branch_approved"},
+        "approve_env": {"branch_approved", "site_submitted"},
+    }
+    if action not in allowed:
+        raise ValueError("Invalid approval action")
+    if current not in allowed[action]:
+        raise ValueError(
+            f"Approval action '{action}' not allowed from status '{current}'"
+        )
+    if action == "submit":
+        activity.approval_status = "site_submitted"
+        activity.approved = False
+    elif action == "withdraw":
+        activity.approval_status = "draft"
+        activity.approved = False
+    elif action == "approve_branch":
+        activity.approval_status = "branch_approved"
+        activity.approved = False
+    elif action == "approve_env":
+        activity.approval_status = "env_approved"
+        activity.approved = True
+        activity.approved_by = actor
+        activity.approved_at = utcnow()
+    elif action == "reject":
+        activity.approval_status = "draft"
+        activity.approved = False
+        activity.approved_by = None
+        activity.approved_at = None
+    activity.updated_at = utcnow()
+    activity.updated_by = actor
+    if comment:
+        add_activity_comment(db, activity_id, f"[承認:{action}] {comment}", actor)
+    db.commit()
+    db.refresh(activity)
+    add_audit_log(db, actor, "approve", "activity", activity_id, f"{action} ({current})")
+    add_notification(
+        db,
+        message=f"承認ステータスが変更されました: {activity.item_name} → {activity.approval_status}",
+        recipient_role="reviewer" if action in ("submit",) else "site",
+    )
+    return activity
+
+
 # ---------------------------------------------------------------------------
 # Emission results
 # ---------------------------------------------------------------------------
@@ -667,6 +726,54 @@ def update_user(
     db.commit()
     db.refresh(user)
     add_audit_log(db, actor, "update", "user", user_id, f"username={user.username}")
+    return user
+
+
+def set_user_totp(db: Session, user_id: str, secret: str) -> models.User:
+    user = get_user(db, user_id)
+    if not user:
+        raise ValueError("User not found")
+    user.totp_secret = secret
+    user.is_2fa_enabled = True
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def find_or_create_oidc_user(
+    db: Session, sub: str, email: Optional[str], display_name: Optional[str]
+) -> models.User:
+    user = db.query(models.User).filter(models.User.oidc_sub == sub).first()
+    if user:
+        return user
+    if email:
+        user = get_user_by_username(db, email.split("@")[0])
+    if not user:
+        username = (email or f"oidc_{sub}").split("@")[0][:50]
+        base = username
+        counter = 1
+        while get_user_by_username(db, username):
+            username = f"{base}_{counter}"
+            counter += 1
+        user = models.User(
+            user_id=_new_id(),
+            username=username,
+            display_name=display_name or username,
+            password_hash="!oidc",  # no password login for OIDC users
+            role="viewer",
+            email=email,
+            oidc_sub=sub,
+            is_active=True,
+            created_at=utcnow(),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        add_audit_log(db, "oidc", "create", "user", user.user_id, username)
+    else:
+        user.oidc_sub = sub
+        db.commit()
+        db.refresh(user)
     return user
 
 
@@ -1232,6 +1339,106 @@ def get_month_status(db: Session, target_month: str) -> list[dict]:
             "days_remaining": days_remaining,
         })
     return items
+
+
+# ---------------------------------------------------------------------------
+# Offset credits (J-credit / certificates)
+# ---------------------------------------------------------------------------
+
+def create_offset_credit(
+    db: Session, body: schemas.OffsetCreditCreate, actor: str
+) -> models.OffsetCredit:
+    if body.credit_type not in {"j_credit", "certificate", "other"}:
+        raise ValueError("Invalid credit_type")
+    credit = models.OffsetCredit(
+        credit_id=_new_id(),
+        status="available",
+        created_by=actor,
+        created_at=utcnow(),
+        **body.model_dump(),
+    )
+    db.add(credit)
+    db.commit()
+    db.refresh(credit)
+    add_audit_log(db, actor, "create", "offset_credit", credit.credit_id, credit.name)
+    return credit
+
+
+def list_offset_credits(db: Session, status: Optional[str] = None):
+    query = db.query(models.OffsetCredit)
+    if status:
+        query = query.filter(models.OffsetCredit.status == status)
+    return query.order_by(models.OffsetCredit.created_at.desc()).all()
+
+
+def get_offset_credit(db: Session, credit_id: str):
+    return (
+        db.query(models.OffsetCredit)
+        .filter(models.OffsetCredit.credit_id == credit_id)
+        .first()
+    )
+
+
+def delete_offset_credit(db: Session, credit_id: str, actor: str) -> bool:
+    credit = get_offset_credit(db, credit_id)
+    if not credit:
+        return False
+    db.delete(credit)
+    db.commit()
+    add_audit_log(db, actor, "delete", "offset_credit", credit_id)
+    return True
+
+
+def allocate_offset_credit(
+    db: Session, credit_id: str, project_id: str, quantity_tco2: float, actor: str
+) -> models.OffsetCredit:
+    credit = get_offset_credit(db, credit_id)
+    if not credit:
+        raise ValueError("Credit not found")
+    if credit.status != "available":
+        raise ValueError("Credit is not available")
+    available = credit.quantity_tco2 - (credit.allocated_tco2 or 0.0)
+    if quantity_tco2 > available:
+        raise ValueError("Allocation exceeds available quantity")
+    credit.allocated_tco2 = (credit.allocated_tco2 or 0.0) + quantity_tco2
+    if credit.allocated_tco2 >= credit.quantity_tco2 - 1e-9:
+        credit.status = "allocated"
+    credit.allocated_project_id = project_id
+    credit.allocated_at = utcnow()
+    credit.note = (credit.note or "") + f"；{actor} が {project_id} に充当"
+    db.commit()
+    db.refresh(credit)
+    add_audit_log(db, actor, "update", "offset_credit", credit_id, "allocated")
+    return credit
+
+
+def retire_offset_credit(db: Session, credit_id: str, actor: str) -> models.OffsetCredit:
+    credit = get_offset_credit(db, credit_id)
+    if not credit:
+        raise ValueError("Credit not found")
+    if credit.status == "retired":
+        raise ValueError("Credit already retired")
+    credit.status = "retired"
+    db.commit()
+    db.refresh(credit)
+    add_audit_log(db, actor, "update", "offset_credit", credit_id, "retired")
+    return credit
+
+
+def offset_summary(db: Session) -> dict:
+    totals = {"available": 0.0, "allocated": 0.0, "retired": 0.0}
+    for credit in list_offset_credits(db):
+        if credit.status == "retired":
+            totals["retired"] += credit.quantity_tco2
+        else:
+            totals["allocated"] += credit.allocated_tco2 or 0.0
+            totals["available"] += credit.quantity_tco2 - (credit.allocated_tco2 or 0.0)
+    return {
+        "available_tco2": totals["available"],
+        "allocated_tco2": totals["allocated"],
+        "retired_tco2": totals["retired"],
+        "total_tco2": sum(totals.values()),
+    }
 
 
 def list_reduction_actions(

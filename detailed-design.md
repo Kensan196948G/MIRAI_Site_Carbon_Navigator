@@ -131,6 +131,15 @@ flowchart LR
 - **branches**: 支店マスタ（name）
 - **user_project_access**: 発注者(client)ユーザーへの工事アクセス割当（user_id, project_id）
 
+### 多段階承認 / セキュリティ / クレジット
+
+- **activity_data.approval_status**: draft → site_submitted → branch_approved → env_approved。env_approved のみ算定対象（approved=true）
+- **users.totp_secret / is_2fa_enabled**: TOTP二要素認証。ログイン時は一時トークン→コード検証の2段階
+- **users.oidc_sub**: SSOユーザーとローカルアカウントの紐付け（OIDCコールバック時に自動プロビジョニング）
+- **offset_credits**: J-クレジット等の保有（quantity_tco2 / allocated_tco2）、充当先プロジェクト、無効化状態
+- **AI削減アシスタント**: 同工種の削減アクション実績とカテゴリ構成比から提案を文脈化
+- **年次環境報告書**: 工事別排出量・Scope別・SBTi進捗・削減実績・クレジットをPDFに集約
+
 ## 3. 入力検証
 
 | 検証 | 内容 |
@@ -195,3 +204,7 @@ flowchart TD
 - 発注者(client)は割当工事のみ閲覧でき、書き込みは常に拒否されるか
 - 支店持ちのsiteユーザーは他支店の工事を変更できないか
 - SMTP/Teams/テレマティクスが未設定時に安全に無効化されるか
+- 多段階承認の遷移制約（不正な遷移は拒否）が守られるか
+- 2FA有効ユーザーは一時トークン+コードでなければログインできないか
+- OIDCコールバックでユーザーが自動生成され、state検証が行われるか
+- クレジットの充当量が保有量を超えないか

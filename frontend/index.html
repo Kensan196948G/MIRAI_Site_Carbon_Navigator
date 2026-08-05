@@ -71,6 +71,11 @@
             <i class="bi bi-bullseye me-1" aria-hidden="true"></i>SBTi
           </a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="credits" aria-label="カーボンクレジット">
+            <i class="bi bi-patch-check me-1" aria-hidden="true"></i>クレジット
+          </a>
+        </li>
         <li class="nav-item d-none" id="auditNavItem">
           <a class="nav-link" href="#" data-page="audit" aria-label="監査ログ">
             <i class="bi bi-journal-check me-1" aria-hidden="true"></i>監査
@@ -102,6 +107,9 @@
             </div>
           </div>
           <span class="navbar-text text-white-50 me-2 d-none d-lg-inline" id="userLabel"></span>
+          <button class="btn btn-sm btn-outline-light me-2" onclick="openSecurityModal()" type="button" id="securityBtn">
+            <i class="bi bi-shield-lock me-1" aria-hidden="true"></i>セキュリティ
+          </button>
           <button class="btn btn-sm btn-outline-light" onclick="logout()" type="button" id="logoutBtn">
             <i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i>ログアウト
           </button>
@@ -508,6 +516,13 @@
         </div>
       </div>
 
+      <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-stars me-2" aria-hidden="true"></i>AI削減アシスタント（実績ベース提案）</div>
+        <div class="card-body" id="assistantList">
+          <p class="text-muted small mb-0">算定実行後に、同工種の削減実績を踏まえた提案が表示されます。</p>
+        </div>
+      </div>
+
       <div class="row g-4 mb-4">
         <div class="col-lg-8">
           <div class="card h-100">
@@ -650,6 +665,21 @@
               <tr><td colspan="7" class="text-center py-4 text-muted">読み込み中...</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+    <div class="card mt-4">
+      <div class="card-header"><i class="bi bi-journal-richtext me-2" aria-hidden="true"></i>年次環境報告書</div>
+      <div class="card-body">
+        <p class="text-muted small mb-2">工事別排出量・Scope別集計・SBTi進捗・削減実績・クレジットを1冊にまとめたPDFを生成します。</p>
+        <div class="d-flex gap-2 align-items-end">
+          <div>
+            <label for="annualYear" class="form-label small">対象年</label>
+            <input type="number" id="annualYear" class="form-control" min="2020" max="2100" style="width:120px">
+          </div>
+          <button class="btn btn-success" onclick="downloadAnnualReport()" type="button">
+            <i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>PDF生成
+          </button>
         </div>
       </div>
     </div>
@@ -863,6 +893,48 @@
               </tr>
             </thead>
             <tbody id="sbtiTableBody">
+              <tr><td colspan="8" class="text-center py-4 text-muted">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Credits ============ -->
+  <section id="section-credits" class="page-section" aria-labelledby="credits-heading">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h2 id="credits-heading"><i class="bi bi-patch-check me-2" aria-hidden="true"></i>カーボンクレジット / オフセット</h2>
+        <p>J-クレジット・再エネ証書などの保有・充当・無効化を管理します。</p>
+      </div>
+      <button class="btn btn-primary" onclick="openCreditModal()" type="button" data-role-min="admin">
+        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>クレジット登録
+      </button>
+    </div>
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3"><div class="stat-card total"><div class="stat-value" id="creditAvailable">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">利用可能</div></div></div>
+      <div class="col-6 col-md-3"><div class="stat-card transport"><div class="stat-value" id="creditAllocated">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">充当済み</div></div></div>
+      <div class="col-6 col-md-3"><div class="stat-card material"><div class="stat-value" id="creditRetired">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">無効化</div></div></div>
+      <div class="col-6 col-md-3"><div class="stat-card fuel"><div class="stat-value" id="creditTotal">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">保有合計</div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0" aria-label="クレジットテーブル">
+            <thead>
+              <tr>
+                <th scope="col">種別</th>
+                <th scope="col">名称</th>
+                <th scope="col">シリアル</th>
+                <th scope="col" class="text-end">数量(t-CO2)</th>
+                <th scope="col" class="text-end">充当済み</th>
+                <th scope="col">状態</th>
+                <th scope="col">充当先</th>
+                <th scope="col" class="text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="creditsTableBody">
               <tr><td colspan="8" class="text-center py-4 text-muted">読み込み中...</td></tr>
             </tbody>
           </table>
@@ -1301,6 +1373,86 @@
   </div>
 </div>
 
+<!-- ===== Security Modal (2FA) ===== -->
+<div class="modal fade" id="securityModal" tabindex="-1" aria-labelledby="securityModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="securityModalLabel"><i class="bi bi-shield-lock me-2" aria-hidden="true"></i>セキュリティ設定</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <div id="securityStatus" class="small mb-3"></div>
+        <div id="totpSetupArea" class="d-none">
+          <p class="small text-muted">認証アプリ（Google Authenticator 等）で以下のシークレットを登録してください。</p>
+          <div class="input-group mb-2">
+            <input type="text" id="totpSecret" class="form-control form-control-sm" readonly>
+            <button class="btn btn-sm btn-outline-secondary" onclick="copyTotpSecret()" type="button">コピー</button>
+          </div>
+          <div class="d-flex gap-2 mb-2">
+            <input type="text" id="totpCode" class="form-control form-control-sm" inputmode="numeric" maxlength="6" placeholder="認証コード6桁">
+            <button class="btn btn-sm btn-primary" onclick="enableTwofa()" type="button">有効化</button>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-danger" onclick="disableTwofa()" type="button">無効化</button>
+          </div>
+        </div>
+        <div id="oidcStatus" class="small text-muted mt-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Credit Modal ===== -->
+<div class="modal fade" id="creditModal" tabindex="-1" aria-labelledby="creditModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="creditModalLabel">クレジット登録</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <form id="creditForm" novalidate>
+          <div class="mb-3">
+            <label for="eCreditType" class="form-label">種別</label>
+            <select id="eCreditType" class="form-select">
+              <option value="j_credit">J-クレジット</option>
+              <option value="certificate">再エネ証書</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="eCreditName" class="form-label">名称 <span class="text-danger">*</span></label>
+            <input type="text" id="eCreditName" class="form-control" required maxlength="200">
+          </div>
+          <div class="mb-3">
+            <label for="eCreditSerial" class="form-label">シリアル番号</label>
+            <input type="text" id="eCreditSerial" class="form-control" maxlength="100">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label for="eCreditQty" class="form-label">数量 (t-CO2) <span class="text-danger">*</span></label>
+              <input type="number" id="eCreditQty" class="form-control" min="0" step="any" required>
+            </div>
+            <div class="col-6">
+              <label for="eCreditDate" class="form-label">購入日</label>
+              <input type="date" id="eCreditDate" class="form-control">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="eCreditNote" class="form-label">備考</label>
+            <input type="text" id="eCreditNote" class="form-control" maxlength="500">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitCreditForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>登録</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== Login Modal ===== -->
 <div class="modal fade" id="loginModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="loginModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -1319,8 +1471,15 @@
             <input type="password" id="loginPassword" class="form-control" autocomplete="current-password" required>
           </div>
           <div id="loginError" class="text-danger small mb-2 d-none"></div>
+          <div id="twofaField" class="mb-3 d-none">
+            <label for="login2faCode" class="form-label">認証コード（6桁）</label>
+            <input type="text" id="login2faCode" class="form-control" inputmode="numeric" maxlength="6" placeholder="123456">
+          </div>
           <button type="button" class="btn btn-primary w-100" onclick="submitLogin()">
             <i class="bi bi-box-arrow-in-right me-1" aria-hidden="true"></i>ログイン
+          </button>
+          <button type="button" class="btn btn-outline-dark w-100 mt-2" onclick="oidcLogin()">
+            <i class="bi bi-person-badge me-1" aria-hidden="true"></i>SSOでログイン
           </button>
         </form>
         <p class="text-muted small mt-3 mb-0">開発用デフォルト: admin/admin123, reviewer/reviewer123, site/site123, viewer/viewer123</p>

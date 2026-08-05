@@ -102,6 +102,7 @@ class ActivityDataRead(ActivityDataCreate):
     model_config = ConfigDict(from_attributes=True)
     activity_id: str
     approved: bool
+    approval_status: str = "draft"
     created_at: datetime.datetime
     approved_by: Optional[str] = None
     approved_at: Optional[datetime.datetime] = None
@@ -220,6 +221,9 @@ class UserRead(BaseModel):
     username: str
     display_name: Optional[str] = None
     role: str
+    branch: Optional[str] = None
+    email: Optional[str] = None
+    is_2fa_enabled: bool = False
     is_active: bool
     created_at: datetime.datetime
 
@@ -549,3 +553,69 @@ class ActivityChangeRead(BaseModel):
     co2_kg_before: Optional[float] = None
     co2_kg_after: Optional[float] = None
     created_at: datetime.datetime
+
+
+class ApprovalAction(BaseModel):
+    action: str  # submit / approve_branch / approve_env / reject / withdraw
+    comment: Optional[str] = None
+
+
+class TotpSetupResponse(BaseModel):
+    secret: str
+    otpauth_url: str
+    already_enabled: bool
+
+
+class TotpVerifyRequest(BaseModel):
+    code: str
+
+
+class LoginResponse(TokenResponse):
+    requires_2fa: bool = False
+    temp_token: Optional[str] = None
+
+
+class TotpLoginRequest(BaseModel):
+    temp_token: str
+    code: str
+
+
+class OffsetCreditCreate(BaseModel):
+    credit_type: str
+    name: str
+    serial_number: Optional[str] = None
+    quantity_tco2: float = Field(gt=0)
+    purchased_at: Optional[datetime.date] = None
+    note: Optional[str] = None
+
+
+class OffsetCreditRead(OffsetCreditCreate):
+    model_config = ConfigDict(from_attributes=True)
+    credit_id: str
+    status: str
+    allocated_tco2: float = 0.0
+    allocated_project_id: Optional[str] = None
+    allocated_at: Optional[datetime.datetime] = None
+    created_by: str
+    created_at: datetime.datetime
+
+
+class OffsetAllocateRequest(BaseModel):
+    project_id: str
+    quantity_tco2: float = Field(gt=0)
+
+
+class OffsetSummary(BaseModel):
+    available_tco2: float
+    allocated_tco2: float
+    retired_tco2: float
+    total_tco2: float
+
+
+class AssistantSuggestion(BaseModel):
+    category: str
+    title: str
+    rationale: str
+    actions: list[str]
+    confidence: float
+    estimated_reduction_kg: Optional[float] = None

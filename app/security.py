@@ -14,6 +14,7 @@ import time
 from datetime import datetime, timezone
 from typing import Optional
 
+import pyotp
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -61,7 +62,13 @@ def _b64url_decode(data: str) -> bytes:
     return base64.urlsafe_b64decode(data + padding)
 
 
-def create_token(user_id: str, username: str, role: str) -> str:
+def create_token(
+    user_id: str,
+    username: str,
+    role: str,
+    token_type: str = "access",
+    ttl_seconds: int = TOKEN_TTL_SECONDS,
+) -> str:
     now = int(time.time())
     header = _b64url(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
     payload = _b64url(
@@ -70,8 +77,9 @@ def create_token(user_id: str, username: str, role: str) -> str:
                 "sub": user_id,
                 "username": username,
                 "role": role,
+                "type": token_type,
                 "iat": now,
-                "exp": now + TOKEN_TTL_SECONDS,
+                "exp": now + ttl_seconds,
             },
             ensure_ascii=False,
         ).encode()
@@ -117,6 +125,8 @@ def get_current_user(
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if payload.get("type", "access") != "access":
+        raise HTTPException(status_code=401, detail="Invalid token type")
     user = crud.get_user(db, payload["sub"])
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User inactive or not found")
@@ -148,3 +158,34 @@ def require_at_least(min_role: str):
 
 def utcnow():
     return datetime.now(timezone.utc)
+
+
+# ---------------------------------------------------------------------------
+# TOTP (two-factor authentication)
+# ---------------------------------------------------------------------------
+
+def generate_totp_secret() -> str:
+    return pyotp.random_base32()
+
+
+def totp_uri(secret: str, username: str) -> str:
+    return pyotp.totp.TOTP(secret).provisioning_uri(
+        name=username, issuer_name="MIRAI Carbon Navigator"
+    )
+
+
+def verify_totp(secret: str, code: str) -> bool:
+    try:
+        return pyotp.TOTP(secret).verify(code, valid_window=1)
+    except Exception:
+        return False
+
+
+def create_2fa_temp_token(user) -> str:
+    return create_token(
+        user.user_id,
+        user.username,
+        user.role,
+        token_type="2fa",
+        ttl_seconds=5 * 60,
+    )

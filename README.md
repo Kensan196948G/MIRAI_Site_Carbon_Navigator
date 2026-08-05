@@ -53,7 +53,7 @@ frontend/
 └── static/
     ├── css/style.css
     └── js/app.js
-tests/                   # pytest (146件)
+tests/                   # pytest (156件)
 ```
 
 ## 🚀 クイックスタート
@@ -131,6 +131,12 @@ docker-compose up --build
 | F-37 | Zスコアによる統計的異常値検知 | ✅ 実装済み |
 | F-38 | 削減シナリオシミュレーション（Scope別影響試算） | ✅ 実装済み |
 | F-39 | 翌月排出量予測（線形トレンド） | ✅ 実装済み |
+| F-40 | 多段階承認フロー（下書き→現場提出→支店承認→環境部承認） | ✅ 実装済み |
+| F-41 | TOTP二要素認証（セキュリティ設定画面） | ✅ 実装済み |
+| F-42 | SSO/OIDCログイン（Entra ID等、自動ユーザープロビジョニング） | ✅ 実装済み |
+| F-43 | AI削減アシスタント（同工種の削減実績・ベンチマークに基づく提案） | ✅ 実装済み |
+| F-44 | カーボンクレジット管理（J-クレジット/再エネ証書の充当・無効化） | ✅ 実装済み |
+| F-45 | 年次環境報告書PDFの自動生成 | ✅ 実装済み |
 
 ## 🧮 算定方式
 
@@ -213,6 +219,15 @@ Scope別集計は算定画面のカード、Excel/CSV/PDFレポートの「Scope
 | POST | /api/emissions/scenario-simulate | 削減シナリオ試算 | viewer〜 |
 | GET | /api/emissions/month-status?target_month= | 月次スケジュール | viewer〜 |
 | GET | /api/activities/{id}/history | 活動量変更履歴 | viewer〜 |
+| PUT | /api/activities/{id}/approval | 多段階承認（submit/approve_branch/approve_env/reject） | 提出: site〜 / 承認系: reviewer〜 |
+| POST | /api/auth/2fa/setup・verify・disable | 二要素認証の設定/解除 | 本人 |
+| POST | /api/auth/2fa/login | 二要素コードでのログイン | - |
+| GET | /api/auth/oidc/login・callback・status | SSOログイン | - |
+| GET | /api/assistant/suggestions?project_id=&target_month= | AI削減アシスタント | viewer〜 |
+| GET/POST | /api/credits | クレジット一覧/登録 | 登録: admin / 閲覧: viewer〜 |
+| POST | /api/credits/{id}/allocate・retire | 充当/無効化 | 充当: reviewer〜 / 無効化: admin |
+| GET | /api/credits/summary | クレジット集計 | viewer〜 |
+| GET | /api/reports/annual/{year} | 年次環境報告書PDF | viewer〜 |
 | GET/POST/PUT/DELETE | /api/feedbacks | 現場フィードバック | 閲覧: viewer〜 / 編集: site〜 / 削除: reviewer〜 |
 | GET | /api/sbti/progress | SBTi進捗 | viewer〜 |
 | GET/POST/PUT/DELETE | /api/sbti/targets | SBTi目標管理 | 管理: admin / 閲覧: viewer〜 |
@@ -233,6 +248,8 @@ Scope別集計は算定画面のカード、Excel/CSV/PDFレポートの「Scope
 | MIRAI_TEAMS_WEBHOOK | 未設定 | Teamsへの通知Webhook |
 | MIRAI_TELEMATICS_MODE | disabled | disabled / simulator / komatsu |
 | MIRAI_KOMATSU_BASE_URL / API_KEY | 未設定 | コマツ系テレマティクスAPI接続情報 |
+| MIRAI_OIDC_ISSUER / CLIENT_ID / CLIENT_SECRET / REDIRECT_URI | 未設定 | SSO/OIDC（設定時のみ有効化） |
+| MIRAI_FRONTEND_URL | http://localhost:8000 | OIDCコールバック後のリダイレクト先 |
 
 ### PostgreSQL での起動（Docker Compose）
 
@@ -251,7 +268,7 @@ PostgreSQL は `docker-compose.yml` の `db` サービスで自動起動し、ap
 ```bash
 pip install -r requirements.txt pytest httpx
 pytest tests/ -v
-# → 146 passed
+# → 156 passed
 ```
 
 ## 🗺️ ロードマップ
@@ -283,8 +300,12 @@ gantt
   工事取込・単位正規化        :done, f1, 2026-08-05, 2d
   比較・欠損月・変更履歴      :done, f2, after f1, 2d
   月次スケジュール・Zスコア・シナリオ・予測 :done, f3, after f2, 3d
-  section Phase 7 (次フェーズ)
-  2現場実地PoC                :g1, 2026-09-01, 30d
+  section Phase 7 (完了)
+  多段階承認・2FA・SSO        :done, g1, 2026-08-05, 3d
+  AIアシスタント・クレジット  :done, g2, after g1, 2d
+  年次環境報告書              :done, g3, after g2, 2d
+  section Phase 8 (次フェーズ)
+  2現場実地PoC                :h1, 2026-09-01, 30d
 ```
 
 ## 📄 関連ドキュメント

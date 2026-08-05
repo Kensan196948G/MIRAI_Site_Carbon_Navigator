@@ -61,6 +61,7 @@ class ActivityData(Base):
     unit = Column(String)
     source_file = Column(String, nullable=True)
     approved = Column(Boolean, default=False)
+    approval_status = Column(String, default="draft")  # draft/site_submitted/branch_approved/env_approved
     created_at = Column(DateTime(timezone=True))
     created_by = Column(String)
     approved_by = Column(String, nullable=True)
@@ -101,6 +102,9 @@ class User(Base):
     role = Column(String, nullable=False, default="viewer")  # admin/reviewer/site/viewer
     branch = Column(String, nullable=True)
     email = Column(String, nullable=True)
+    totp_secret = Column(String, nullable=True)
+    is_2fa_enabled = Column(Boolean, default=False)
+    oidc_sub = Column(String, nullable=True, index=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True))
 
@@ -235,5 +239,23 @@ class UserProjectAccess(Base):
     access_id = Column(String, primary_key=True)
     user_id = Column(String, ForeignKey("users.user_id"), nullable=False)
     project_id = Column(String, ForeignKey("projects.project_id"), nullable=False)
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class OffsetCredit(Base):
+    __tablename__ = "offset_credits"
+
+    credit_id = Column(String, primary_key=True)
+    credit_type = Column(String, nullable=False)  # j_credit / certificate / other
+    name = Column(String, nullable=False)
+    serial_number = Column(String, nullable=True)
+    quantity_tco2 = Column(Float, nullable=False)
+    allocated_tco2 = Column(Float, default=0.0)
+    purchased_at = Column(Date, nullable=True)
+    status = Column(String, default="available")  # available / allocated / retired
+    allocated_project_id = Column(String, ForeignKey("projects.project_id"), nullable=True)
+    allocated_at = Column(DateTime(timezone=True), nullable=True)
+    note = Column(String, nullable=True)
     created_by = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)

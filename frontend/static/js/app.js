@@ -45,6 +45,7 @@ let charts = {};
 let lastSuggestions = [];
 let lastSuggestionProject = null;
 let lastSuggestionMonth = null;
+let pending2faToken = null;
 
 // ===== Auth state =====
 function getAuth() {
@@ -318,6 +319,8 @@ function showLoginModal() {
   const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
   modal.show();
   document.getElementById('loginError').classList.add('d-none');
+  document.getElementById('twofaField').classList.add('d-none');
+  pending2faToken = null;
   document.getElementById('loginForm').reset();
 }
 
@@ -393,15 +396,36 @@ async function submitLogin() {
   if (!form.checkValidity()) { form.reportValidity(); return; }
   const username = document.getElementById('loginUsername').value.trim();
   const password = document.getElementById('loginPassword').value;
+  const code = document.getElementById('login2faCode').value.trim();
   const errorEl = document.getElementById('loginError');
   errorEl.classList.add('d-none');
 
   showLoading();
   try {
+    if (pending2faToken) {
+      const data = await fetchJSON('/api/auth/2fa/login', {
+        method: 'POST',
+        body: { temp_token: pending2faToken, code },
+      });
+      setAuth({ token: data.access_token, user: data.user });
+      bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+      updateAuthUI();
+      showToast('二要素認証が完了しました', 'success');
+      navigateTo(currentPage === 'dashboard' ? 'dashboard' : currentPage);
+      return;
+    }
     const data = await fetchJSON('/api/auth/login', {
       method: 'POST',
       body: { username, password },
     });
+    if (data.requires_2fa) {
+      pending2faToken = data.temp_token;
+      document.getElementById('twofaField').classList.remove('d-none');
+      errorEl.textContent = '認証アプリのコードを入力してください';
+      errorEl.classList.remove('d-none');
+      document.getElementById('login2faCode').focus();
+      return;
+    }
     setAuth({ token: data.access_token, user: data.user });
     bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
     updateAuthUI();
@@ -413,6 +437,10 @@ async function submitLogin() {
   } finally {
     hideLoading();
   }
+}
+
+function oidcLogin() {
+  window.location.href = '/api/auth/oidc/login';
 }
 
 // ===== Navigation =====
@@ -439,6 +467,7 @@ function navigateTo(page) {
     case 'users': loadUsers(); break;
     case 'feedbacks': populateProjectSelects().then(loadFeedbacks); break;
     case 'sbti': loadSbti(); break;
+    case 'credits': loadCredits(); break;
   }
 }
 
@@ -996,12 +1025,35 @@ function renderActivitiesTable(activities) {
 
     const statusTd = document.createElement('td');
     statusTd.className = 'text-center';
-    statusTd.appendChild(makeBadge(a.approved ? '承認済' : '未承認', a.approved ? 'bg-success' : 'bg-secondary'));
+    const statusLabels = {
+      draft: '下書き', site_submitted: '現場提出', branch_approved: '支店承認',
+      env_approved: '環境部承認',
+    };
+    const statusClasses = {
+      draft: 'bg-secondary', site_submitted: 'bg-info', branch_approved: 'bg-warning',
+      env_approved: 'bg-success',
+    };
+    const approvalStatus = a.approval_status || (a.approved ? 'env_approved' : 'draft');
+    statusTd.appendChild(makeBadge(
+      statusLabels[approvalStatus] || approvalStatus,
+      statusClasses[approvalStatus] || 'bg-secondary'
+    ));
     tr.appendChild(statusTd);
 
     const actionTd = document.createElement('td');
     actionTd.className = 'text-center';
     actionTd.appendChild(makeActionButton('', 'bi-chat-dots', () => openComments(a.activity_id, a.item_name), 'btn-outline-secondary btn-icon', 'コメント'));
+    if (approvalStatus === 'draft' && hasRole('site')) {
+      actionTd.appendChild(makeActionButton('提出', 'bi-send', () => approvalAction(a.activity_id, 'submit'), 'btn-outline-info btn-sm'));
+    }
+    if (approvalStatus === 'site_submitted' && hasRole('reviewer')) {
+      actionTd.appendChild(makeActionButton('支店承認', 'bi-check2', () => approvalAction(a.activity_id, 'approve_branch'), 'btn-outline-success btn-sm'));
+      actionTd.appendChild(makeActionButton('却下', 'bi-x', () => approvalAction(a.activity_id, 'reject'), 'btn-outline-danger btn-sm'));
+    }
+    if (approvalStatus === 'branch_approved' && hasRole('reviewer')) {
+      actionTd.appendChild(makeActionButton('環境部承認', 'bi-shield-check', () => approvalAction(a.activity_id, 'approve_env'), 'btn-outline-primary btn-sm'));
+      actionTd.appendChild(makeActionButton('却下', 'bi-x', () => approvalAction(a.activity_id, 'reject'), 'btn-outline-danger btn-sm'));
+    }
     if (hasRole('site')) {
       actionTd.appendChild(makeActionButton('', 'bi-pencil', () => openActivityEditModal(a), 'btn-outline-primary btn-icon', '編集'));
       actionTd.appendChild(makeActionButton('', 'bi-trash', () => deleteActivity(a), 'btn-outline-danger btn-icon', '削除'));
@@ -1010,6 +1062,28 @@ function renderActivitiesTable(activities) {
     }
     tr.appendChild(actionTd);
     tbody.appendChild(tr);
+  }
+}
+
+async function approvalAction(activityId, action) {
+  let comment = null;
+  if (action === 'reject') {
+    comment = window.prompt('却下理由を入力してください', '');
+    if (comment === null) return;
+  }
+  showLoading();
+  try {
+    await fetchJSON(`/api/activities/${activityId}/approval`, {
+      method: 'PUT',
+      body: { action, comment },
+    });
+    showToast('承認ステータスを更新しました', 'success');
+    onActivityFilterChange();
+    refreshUnreadBadge();
+  } catch (err) {
+    showToast(`更新失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
   }
 }
 
@@ -1401,6 +1475,7 @@ async function executeCalculation() {
       lastSuggestions = [];
       renderReductionSuggestions([]);
     }
+    loadAssistant(projectId, month);
     refreshUnreadBadge();
   } catch (err) {
     showToast(`算定失敗: ${err.message}`, 'danger');
@@ -1476,6 +1551,53 @@ async function runScenario() {
     showToast(`試算失敗: ${err.message}`, 'danger');
   } finally {
     hideLoading();
+  }
+}
+
+async function loadAssistant(projectId, month) {
+  const container = document.getElementById('assistantList');
+  if (!container) return;
+  try {
+    const suggestions = await fetchJSON(`/api/assistant/suggestions?${new URLSearchParams({ project_id: projectId, target_month: month })}`);
+    while (container.firstChild) container.removeChild(container.firstChild);
+    if (!suggestions || !suggestions.length) {
+      const p = document.createElement('p');
+      p.className = 'text-muted small mb-0';
+      p.textContent = '提案を生成するデータがありません。';
+      container.appendChild(p);
+      return;
+    }
+    for (const s of suggestions) {
+      const div = document.createElement('div');
+      div.className = 'reduction-item';
+      const head = document.createElement('strong');
+      head.textContent = `${CATEGORY_LABELS[s.category] || s.category}: ${s.title}`;
+      div.appendChild(head);
+      const rationale = document.createElement('div');
+      rationale.className = 'small text-muted mt-1';
+      rationale.textContent = `根拠: ${s.rationale}（信頼度 ${Math.round(s.confidence * 100)}%）`;
+      div.appendChild(rationale);
+      const actions = document.createElement('ul');
+      actions.className = 'mb-0 mt-1 small';
+      for (const a of s.actions || []) {
+        const li = document.createElement('li');
+        li.textContent = a;
+        actions.appendChild(li);
+      }
+      div.appendChild(actions);
+      if (s.estimated_reduction_kg != null) {
+        const est = document.createElement('div');
+        est.className = 'small text-success';
+        est.textContent = `参考: 同工種の実績では約 ${formatNumber(s.estimated_reduction_kg / 1000, 3)} t-CO2 の削減効果`;
+        div.appendChild(est);
+      }
+      container.appendChild(div);
+    }
+  } catch (_) {
+    const p = document.createElement('p');
+    p.className = 'text-muted small mb-0';
+    p.textContent = 'AI削減アシスタントを取得できませんでした。';
+    container.appendChild(p);
   }
 }
 
@@ -2667,6 +2789,223 @@ async function deleteSbtiTarget(target) {
   }
 }
 
+// ===== Security (2FA / OIDC) =====
+async function openSecurityModal() {
+  const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('securityModal'));
+  modal.show();
+  const statusEl = document.getElementById('securityStatus');
+  const setupArea = document.getElementById('totpSetupArea');
+  try {
+    const me = await fetchJSON('/api/auth/me');
+    if (me.is_2fa_enabled) {
+      const setup = await fetchJSON('/api/auth/2fa/setup');
+      document.getElementById('totpSecret').value = setup.secret;
+      statusEl.textContent = '🔐 二要素認証: 有効';
+      statusEl.className = 'small mb-3 text-success';
+      setupArea.classList.remove('d-none');
+      document.querySelector('#totpSetupArea .btn-primary').classList.add('d-none');
+      document.querySelector('#totpSetupArea input').classList.add('d-none');
+    } else {
+      const setup = await fetchJSON('/api/auth/2fa/setup');
+      document.getElementById('totpSecret').value = setup.secret;
+      statusEl.textContent = '二要素認証: 未設定';
+      statusEl.className = 'small mb-3 text-danger';
+      setupArea.classList.remove('d-none');
+      document.querySelector('#totpSetupArea .btn-primary').classList.remove('d-none');
+      document.querySelector('#totpSetupArea input').classList.remove('d-none');
+    }
+    const oidc = await fetchJSON('/api/auth/oidc/status').catch(() => ({ enabled: false }));
+    document.getElementById('oidcStatus').textContent = oidc.enabled
+      ? `SSO（OIDC）: 有効（${oidc.provider || ''}）`
+      : 'SSO（OIDC）: 未設定（環境変数 MIRAI_OIDC_ISSUER 等で有効化）';
+  } catch (err) {
+    statusEl.textContent = `セキュリティ情報の取得に失敗: ${err.message}`;
+    statusEl.className = 'small mb-3 text-danger';
+  }
+}
+
+async function enableTwofa() {
+  const code = document.getElementById('totpCode').value.trim();
+  if (!code) { showToast('認証コードを入力してください', 'warning'); return; }
+  try {
+    await fetchJSON('/api/auth/2fa/verify', { method: 'POST', body: { code } });
+    showToast('二要素認証を有効化しました', 'success');
+    openSecurityModal();
+  } catch (err) {
+    showToast(`有効化失敗: ${err.message}`, 'danger');
+  }
+}
+
+async function disableTwofa() {
+  const code = document.getElementById('totpCode').value.trim();
+  if (!code) { showToast('認証コードを入力してください', 'warning'); return; }
+  if (!window.confirm('二要素認証を無効化しますか？')) return;
+  try {
+    await fetchJSON('/api/auth/2fa/disable', { method: 'POST', body: { code } });
+    showToast('二要素認証を無効化しました', 'success');
+    bootstrap.Modal.getInstance(document.getElementById('securityModal')).hide();
+  } catch (err) {
+    showToast(`無効化失敗: ${err.message}`, 'danger');
+  }
+}
+
+async function copyTotpSecret() {
+  const secret = document.getElementById('totpSecret').value;
+  try {
+    await navigator.clipboard.writeText(secret);
+    showToast('シークレットをコピーしました', 'success');
+  } catch (_) {
+    showToast(`シークレット: ${secret}`, 'info');
+  }
+}
+
+// ===== Credits =====
+async function loadCredits() {
+  const tbody = document.getElementById('creditsTableBody');
+  setTbodyRow(tbody, makeLoadingRow(8));
+  try {
+    const [credits, summary, projects] = await Promise.all([
+      fetchJSON('/api/credits'),
+      fetchJSON('/api/credits/summary'),
+      fetchJSON('/api/projects'),
+    ]);
+    const projectNames = {};
+    for (const p of projects) projectNames[p.project_id] = p.name;
+    document.getElementById('creditAvailable').textContent = formatNumber(summary.available_tco2, 2);
+    document.getElementById('creditAllocated').textContent = formatNumber(summary.allocated_tco2, 2);
+    document.getElementById('creditRetired').textContent = formatNumber(summary.retired_tco2, 2);
+    document.getElementById('creditTotal').textContent = formatNumber(summary.total_tco2, 2);
+    renderCreditsTable(credits, projectNames);
+  } catch (err) {
+    setTbodyRow(tbody, makeErrorRow(8, err.message));
+  }
+}
+
+function renderCreditsTable(credits, projectNames) {
+  const tbody = document.getElementById('creditsTableBody');
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+  if (!credits || credits.length === 0) {
+    tbody.appendChild(makeEmptyRow(8, '🎫', 'クレジットが登録されていません。'));
+    return;
+  }
+  const typeLabels = { j_credit: 'J-クレジット', certificate: '再エネ証書', other: 'その他' };
+  const statusLabels = { available: '利用可能', allocated: '充当済み', retired: '無効化' };
+  const statusClasses = { available: 'bg-success', allocated: 'bg-info', retired: 'bg-secondary' };
+  for (const c of credits) {
+    const tr = document.createElement('tr');
+    tr.appendChild(td(typeLabels[c.credit_type] || c.credit_type));
+    tr.appendChild(td(c.name));
+    tr.appendChild(td(c.serial_number || '-'));
+    tr.appendChild(td(formatNumber(c.quantity_tco2, 2), 'text-end'));
+    tr.appendChild(td(formatNumber(c.allocated_tco2 || 0, 2), 'text-end'));
+    tr.appendChild(td(makeBadge(statusLabels[c.status] || c.status, statusClasses[c.status] || 'bg-secondary')));
+    tr.appendChild(td(c.allocated_project_id ? projectNames[c.allocated_project_id] || c.allocated_project_id : '-'));
+    const actionTd = document.createElement('td');
+    actionTd.className = 'text-center';
+    if (c.status === 'available' && hasRole('reviewer')) {
+      actionTd.appendChild(makeActionButton('充当', 'bi-folder-check', () => allocateCredit(c), 'btn-outline-info btn-sm'));
+    }
+    if (c.status !== 'retired' && hasRole('admin')) {
+      actionTd.appendChild(makeActionButton('無効化', 'bi-x-circle', () => retireCredit(c), 'btn-outline-warning btn-sm'));
+      actionTd.appendChild(makeActionButton('', 'bi-trash', () => deleteCredit(c), 'btn-outline-danger btn-icon', '削除'));
+    }
+    tr.appendChild(actionTd);
+    tbody.appendChild(tr);
+  }
+}
+
+function openCreditModal() {
+  document.getElementById('creditForm').reset();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('creditModal')).show();
+}
+
+async function submitCreditForm() {
+  const form = document.getElementById('creditForm');
+  if (!form.checkValidity()) { form.reportValidity(); return; }
+  const data = {
+    credit_type: document.getElementById('eCreditType').value,
+    name: document.getElementById('eCreditName').value.trim(),
+    serial_number: document.getElementById('eCreditSerial').value.trim() || null,
+    quantity_tco2: parseFloat(document.getElementById('eCreditQty').value),
+    purchased_at: document.getElementById('eCreditDate').value || null,
+    note: document.getElementById('eCreditNote').value.trim() || null,
+  };
+  showLoading();
+  try {
+    await fetchJSON('/api/credits', { method: 'POST', body: data });
+    bootstrap.Modal.getInstance(document.getElementById('creditModal')).hide();
+    showToast('クレジットを登録しました', 'success');
+    loadCredits();
+  } catch (err) {
+    showToast(`登録失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function allocateCredit(credit) {
+  const qty = window.prompt(`${credit.name} の充当量 (t-CO2)`, '');
+  if (!qty) return;
+  const projectId = window.prompt('充当先の工事IDを入力してください（工事一覧で確認可）', '');
+  if (!projectId) return;
+  showLoading();
+  try {
+    await fetchJSON(`/api/credits/${credit.credit_id}/allocate`, {
+      method: 'POST',
+      body: { project_id: projectId, quantity_tco2: parseFloat(qty) },
+    });
+    showToast('充当しました', 'success');
+    loadCredits();
+  } catch (err) {
+    showToast(`充当失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function retireCredit(credit) {
+  if (!window.confirm(`クレジット「${credit.name}」を無効化（retire）しますか？`)) return;
+  showLoading();
+  try {
+    await fetchJSON(`/api/credits/${credit.credit_id}/retire`, { method: 'POST' });
+    showToast('無効化しました', 'success');
+    loadCredits();
+  } catch (err) {
+    showToast(`無効化失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function deleteCredit(credit) {
+  if (!window.confirm(`クレジット「${credit.name}」を削除しますか？`)) return;
+  showLoading();
+  try {
+    await fetchJSON(`/api/credits/${credit.credit_id}`, { method: 'DELETE' });
+    showToast('削除しました', 'success');
+    loadCredits();
+  } catch (err) {
+    showToast(`削除失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
+// ===== Annual report =====
+async function downloadAnnualReport() {
+  const year = parseInt(document.getElementById('annualYear').value, 10);
+  if (!year) { showToast('対象年を入力してください', 'warning'); return; }
+  showLoading();
+  try {
+    await downloadFile(`/api/reports/annual/${year}`, `annual_report_${year}.pdf`);
+    showToast('年次環境報告書をダウンロードしました', 'success');
+  } catch (err) {
+    showToast(`生成失敗: ${err.message}`, 'danger');
+  } finally {
+    hideLoading();
+  }
+}
+
 // ===== Init =====
 document.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
@@ -2675,6 +3014,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById(id);
     if (el) el.value = currentMonth;
   });
+  document.getElementById('annualYear').value = now.getFullYear();
 
   document.querySelectorAll('.nav-link[data-page]').forEach(link => {
     link.addEventListener('click', e => {
@@ -2692,6 +3032,24 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshUnreadBadge();
     setInterval(refreshUnreadBadge, 60000);
   } else {
-    showLoginModal();
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      setAuth({ token });
+      history.replaceState({}, '', window.location.pathname);
+      fetchJSON('/api/auth/me')
+        .then(user => {
+          const auth = getAuth();
+          auth.user = user;
+          setAuth(auth);
+          updateAuthUI();
+          showToast('SSOでログインしました', 'success');
+          navigateTo('dashboard');
+          refreshUnreadBadge();
+        })
+        .catch(() => showLoginModal());
+    } else {
+      showLoginModal();
+    }
   }
 });

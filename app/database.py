@@ -40,9 +40,16 @@ def _ensure_columns():
                 "updated_at": f"ALTER TABLE activity_data ADD COLUMN updated_at {datetime_type}",
                 "note": "ALTER TABLE activity_data ADD COLUMN note VARCHAR",
                 "supplier": "ALTER TABLE activity_data ADD COLUMN supplier VARCHAR",
+                "approval_status": "ALTER TABLE activity_data ADD COLUMN approval_status VARCHAR DEFAULT 'draft'",
             }.items():
                 if col not in columns:
                     conn.execute(text(ddl))
+
+    if "offset_credits" in tables:
+        columns = {c["name"] for c in inspector.get_columns("offset_credits")}
+        with engine.begin() as conn:
+            if "allocated_tco2" not in columns:
+                conn.execute(text("ALTER TABLE offset_credits ADD COLUMN allocated_tco2 FLOAT DEFAULT 0"))
 
     # emission_results: factor snapshot columns
     if "emission_results" in tables:
@@ -89,6 +96,12 @@ def _ensure_columns():
                 conn.execute(text("ALTER TABLE users ADD COLUMN branch VARCHAR"))
             if "email" not in columns:
                 conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR"))
+            if "totp_secret" not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN totp_secret VARCHAR"))
+            if "is_2fa_enabled" not in columns:
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN is_2fa_enabled BOOLEAN DEFAULT 0"))
+            if "oidc_sub" not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN oidc_sub VARCHAR"))
 
 
 def get_db():

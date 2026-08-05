@@ -12,10 +12,12 @@ import os
 from .routers import (
     actions,
     activities,
+    assistant,
     audit,
     auth,
     branches,
     closes,
+    credits,
     demo,
     emissions,
     export,
@@ -78,6 +80,8 @@ app.include_router(units.router)
 app.include_router(branches.router)
 app.include_router(telematics.router)
 app.include_router(export.router)
+app.include_router(credits.router)
+app.include_router(assistant.router)
 
 
 # Serve static frontend files

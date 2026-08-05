@@ -134,6 +134,39 @@ def approve_activity(
     return activity
 
 
+@router.put("/{activity_id}/approval", response_model=schemas.ActivityDataRead)
+def approval_action(
+    activity_id: str,
+    body: schemas.ApprovalAction,
+    db: Session = Depends(get_db),
+    user=Depends(require_at_least("site")),
+):
+    activity = crud.get_activity(db, activity_id)
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    if crud.is_month_closed(db, activity.project_id, activity.target_month):
+        raise HTTPException(status_code=400, detail="対象月は締め済みです")
+    role_needed = {
+        "submit": "site",
+        "withdraw": "site",
+        "approve_branch": "reviewer",
+        "reject": "reviewer",
+        "approve_env": "reviewer",
+    }.get(body.action)
+    if role_needed and not (
+        user.role == "admin"
+        or (role_needed == "reviewer" and user.role in {"reviewer", "admin"})
+        or (role_needed == "site" and user.role in {"site", "reviewer", "admin"})
+    ):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    try:
+        return crud.transition_approval(
+            db, activity_id, body.action, user.username, body.comment
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.put("/{activity_id}", response_model=schemas.ActivityDataRead)
 def update_activity(
     activity_id: str,
