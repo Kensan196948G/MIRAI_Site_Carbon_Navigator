@@ -4,7 +4,7 @@ Integration tests for the Activities API (/api/activities).
 import pytest
 from starlette.testclient import TestClient
 
-from tests.conftest import make_project, make_activity
+from tests.conftest import make_activity, make_project
 
 
 class TestCreateActivity:

@@ -7,25 +7,36 @@ sqlite3 connection, which ensures that tables created with create_all()
 are visible to the dependency-overridden sessions during requests.
 """
 import datetime
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from starlette.testclient import TestClient
 
-from app.main import app as fastapi_app
-from app.database import Base, get_db
 import app.models  # noqa: F401 — ensures all ORM models are registered with Base.metadata
+from app.database import Base, get_db
+from app.main import app as fastapi_app
+from app.models import Branch, User
+from app.security import hash_password
 
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Clear the in-memory rate limiter between tests."""
+    from app.main import _rate_hits
+
+    _rate_hits.clear()
+    yield
+    _rate_hits.clear()
 
 # ---------------------------------------------------------------------------
 # Test database setup
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="function")
-def client():
+def _make_client(role: str):
     """
-    Create a fresh in-memory SQLite database and a TestClient for each test.
+    Create a fresh in-memory SQLite database and an authenticated TestClient.
     Overrides the get_db dependency so the app uses the test DB.
 
     StaticPool is required so that all sessions (including those created
@@ -42,6 +53,37 @@ def client():
     # Create all tables in the shared in-memory connection
     Base.metadata.create_all(bind=engine)
 
+    # Seed default users so role-protected endpoints can be exercised.
+    session = TestingSessionLocal()
+    for username, display_name, user_role, branch in [
+        ("admin", "管理者", "admin", None),
+        ("reviewer", "レビュアー", "reviewer", None),
+        ("site", "現場担当", "site", "東京支店"),
+        ("viewer", "閲覧者", "viewer", None),
+    ]:
+        session.add(
+            User(
+                user_id=f"user-{username}",
+                username=username,
+                display_name=display_name,
+                password_hash=hash_password(f"{username}123"),
+                role=user_role,
+                branch=branch,
+                email=f"{username}@example.local",
+                is_active=True,
+                created_at=datetime.datetime.now(datetime.UTC),
+            )
+        )
+    session.commit()
+    for name in ["東京支店", "大阪支店", "東北支店"]:
+        session.add(Branch(
+            branch_id=f"branch-{name}",
+            name=name,
+            created_at=datetime.datetime.now(datetime.UTC),
+        ))
+    session.commit()
+    session.close()
+
     def override_get_db():
         db = TestingSessionLocal()
         try:
@@ -52,9 +94,110 @@ def client():
     fastapi_app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(fastapi_app) as test_client:
+        login_resp = test_client.post(
+            "/api/auth/login",
+            json={"username": role, "password": f"{role}123"},
+        )
+        assert login_resp.status_code == 200, login_resp.text
+        token = login_resp.json()["access_token"]
+        test_client.headers.update({"Authorization": f"Bearer {token}"})
         yield test_client
 
     # Cleanup
+    fastapi_app.dependency_overrides.clear()
+    Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(scope="function")
+def client():
+    yield from _make_client("admin")
+
+
+@pytest.fixture(scope="function")
+def viewer_client():
+    yield from _make_client("viewer")
+
+
+@pytest.fixture(scope="function")
+def site_client():
+    yield from _make_client("site")
+
+
+@pytest.fixture(scope="function")
+def reviewer_client():
+    yield from _make_client("reviewer")
+
+
+@pytest.fixture(scope="function")
+def client_pair():
+    """Admin and reviewer clients sharing one in-memory DB (for notification tests)."""
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base.metadata.create_all(bind=engine)
+    session = TestingSessionLocal()
+    for username, display_name, user_role, branch in [
+        ("admin", "管理者", "admin", None),
+        ("reviewer", "レビュアー", "reviewer", None),
+        ("site", "現場担当", "site", "東京支店"),
+        ("viewer", "閲覧者", "viewer", None),
+    ]:
+        session.add(
+            User(
+                user_id=f"user-{username}",
+                username=username,
+                display_name=display_name,
+                password_hash=hash_password(f"{username}123"),
+                role=user_role,
+                branch=branch,
+                email=f"{username}@example.local",
+                is_active=True,
+                created_at=datetime.datetime.now(datetime.UTC),
+            )
+        )
+    session.commit()
+    for name in ["東京支店", "大阪支店", "東北支店"]:
+        session.add(Branch(
+            branch_id=f"branch-{name}",
+            name=name,
+            created_at=datetime.datetime.now(datetime.UTC),
+        ))
+    session.commit()
+    session.close()
+
+    def override_get_db():
+        db = TestingSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    fastapi_app.dependency_overrides[get_db] = override_get_db
+
+    def login(username, password):
+        client = TestClient(fastapi_app)
+        resp = client.post(
+            "/api/auth/login",
+            json={"username": username, "password": password},
+        )
+        assert resp.status_code == 200, resp.text
+        client.headers.update({"Authorization": f"Bearer {resp.json()['access_token']}"})
+        return client
+
+    with TestClient(fastapi_app) as admin:
+        login_resp = admin.post(
+            "/api/auth/login",
+            json={"username": "admin", "password": "admin123"},
+        )
+        assert login_resp.status_code == 200, login_resp.text
+        admin.headers.update({"Authorization": f"Bearer {login_resp.json()['access_token']}"})
+        reviewer = login("reviewer", "reviewer123")
+        site = login("site", "site123")
+        yield admin, reviewer, site
+
     fastapi_app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=engine)
 

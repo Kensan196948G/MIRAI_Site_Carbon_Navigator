@@ -18,6 +18,16 @@ flowchart LR
 
 ## 2. データモデル
 
+### users
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| user_id | string | ユーザーID |
+| username | string | ログインID（一意） |
+| password_hash | string | PBKDF2-SHA256ハッシュ |
+| role | string | admin / reviewer / site / viewer |
+| is_active | boolean | 有効/無効 |
+
 ### emission_factors
 
 | カラム | 型 | 説明 |
@@ -29,6 +39,8 @@ flowchart LR
 | factor_value | number | 排出係数 |
 | effective_from | date | 適用開始日 |
 | source | string | 出典 |
+| created_by | string | 登録者 |
+| updated_at / updated_by | datetime/string | 更新者・更新日時 |
 
 ### activity_data
 
@@ -43,6 +55,8 @@ flowchart LR
 | unit | string | 単位 |
 | source_file | string | 元ファイル |
 | approved | boolean | 承認状態 |
+| approved_by / approved_at | string/datetime | 承認者・承認日時 |
+| note | string | 備考 |
 
 ### emission_results
 
@@ -53,6 +67,78 @@ flowchart LR
 | factor_id | string | 係数ID |
 | co2_kg | number | CO2排出量kg |
 | calculated_at | datetime | 算定日時 |
+| factor_value | number | 適用した係数値（スナップショット） |
+| factor_source | string | 係数出典（スナップショット） |
+| factor_effective_from | date | 係数適用開始日（スナップショット） |
+
+### reduction_actions
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| action_id | string | アクションID |
+| project_id / target_month | string | 工事・対象月 |
+| category | string | カテゴリ |
+| suggestion | text | 削減提案内容 |
+| status | string | planned / implemented / declined |
+| estimated_reduction_kg | number | 想定削減量 |
+| actual_reduction_kg | number | 実績削減量 |
+
+### audit_logs
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| log_id | string | ログID |
+| actor | string | 操作者 |
+| action | string | create / update / delete / approve / login |
+| resource_type / resource_id | string | 対象リソース |
+| detail | text | 詳細 |
+
+### notifications
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| notification_id | string | 通知ID |
+| recipient_role / recipient_username | string | 宛先ロール / 宛先ユーザー（nullは全員） |
+| message | text | 通知文 |
+| link | string | 遷移先 |
+| is_read | boolean | 既読状態 |
+
+### site_feedbacks
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| feedback_id | string | フィードバックID |
+| project_id / target_month | string | 工事・対象月 |
+| category | string | カテゴリ |
+| content | text | 内容 |
+| status | string | open / acknowledged / resolved |
+
+### sbti_targets
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| target_id | string | 目標ID |
+| scope | string | scope1 / scope2 / scope3 |
+| base_year / target_year | int | 基準年・目標年 |
+| base_emissions_kg | number | 基準排出量 |
+| reduction_percent | number | 削減率(%) |
+| is_active | boolean | 有効/無効 |
+
+### monthly_closes / activity_comments / branches / user_project_access
+
+- **monthly_closes**: 工事・対象月の締め状態（project_id, target_month, closed_by, closed_at）。締め後は活動量の登録/更新/削除/承認と再算定をブロック
+- **activity_comments**: 活動量へのコメントスレッド（activity_id, author, content, created_at）
+- **branches**: 支店マスタ（name）
+- **user_project_access**: 発注者(client)ユーザーへの工事アクセス割当（user_id, project_id）
+
+### 多段階承認 / セキュリティ / クレジット
+
+- **activity_data.approval_status**: draft → site_submitted → branch_approved → env_approved。env_approved のみ算定対象（approved=true）
+- **users.totp_secret / is_2fa_enabled**: TOTP二要素認証。ログイン時は一時トークン→コード検証の2段階
+- **users.oidc_sub**: SSOユーザーとローカルアカウントの紐付け（OIDCコールバック時に自動プロビジョニング）
+- **offset_credits**: J-クレジット等の保有（quantity_tco2 / allocated_tco2）、充当先プロジェクト、無効化状態
+- **AI削減アシスタント**: 同工種の削減アクション実績とカテゴリ構成比から提案を文脈化
+- **年次環境報告書**: 工事別排出量・Scope別・SBTi進捗・削減実績・クレジットをPDFに集約
 
 ## 3. 入力検証
 
@@ -63,6 +149,9 @@ flowchart LR
 | 単位チェック | 排出係数マスタに存在する単位か |
 | 重複チェック | 同一工事・月・品目の二重登録 |
 | しきい値チェック | 前月比200%以上など異常値を警告 |
+| 月形式チェック | target_month が YYYY-MM 形式であること |
+| 数量チェック | 数量が正の数であること |
+| 単位チェック | 排出係数マスタに存在する単位か（未設定は未算定として警告） |
 
 ## 4. 削減ナビロジック
 
@@ -93,6 +182,8 @@ flowchart TD
 | SiteInput | 担当工事の活動量登録 |
 | Viewer | 閲覧のみ |
 
+実装では JWT（HMAC-SHA256）トークンによる認証と、エンドポイント単位のロールガードを適用する。
+
 ## 6. テスト観点
 
 - 排出係数変更時に再計算できるか
@@ -100,3 +191,20 @@ flowchart TD
 - 前月比異常値を警告できるか
 - レポート数値とDB集計が一致するか
 - 承認前データが公式レポートに含まれないか
+- PDF/CSV/Excelの出力形式が正しいか
+- 同工種ベンチマークの比較ロジックが正しいか
+- 前月比・3ヶ月平均比の異常値検知が正しいか
+- 通知の宛先ロール・既読管理が正しいか
+- PostgreSQL等の別DBで起動できるか
+- デモデータ生成が冪等で、削除で完全に戻るか
+- Scope分類・Scope別集計が正しいか
+- SBTi進捗（達成率・順調判定）が正しいか
+- 月次締め後に入力・承認・再算定がブロックされ、解除後に復帰するか
+- 前月コピーが承認解除で作成され、重複はスキップされるか
+- 発注者(client)は割当工事のみ閲覧でき、書き込みは常に拒否されるか
+- 支店持ちのsiteユーザーは他支店の工事を変更できないか
+- SMTP/Teams/テレマティクスが未設定時に安全に無効化されるか
+- 多段階承認の遷移制約（不正な遷移は拒否）が守られるか
+- 2FA有効ユーザーは一時トークン+コードでなければログインできないか
+- OIDCコールバックでユーザーが自動生成され、state検証が行われるか
+- クレジットの充当量が保有量を超えないか

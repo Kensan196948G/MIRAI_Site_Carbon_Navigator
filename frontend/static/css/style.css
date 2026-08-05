@@ -121,6 +121,9 @@ body {
 .stat-card.power { background: linear-gradient(135deg, #d4ac0d, #f4d03f); color: #333; }
 .stat-card.material { background: linear-gradient(135deg, #566573, var(--material-color)); }
 .stat-card.transport { background: linear-gradient(135deg, #1a6ca8, var(--transport-color)); }
+.stat-card.scope1 { background: linear-gradient(135deg, #922b21, #c0392b); }
+.stat-card.scope2 { background: linear-gradient(135deg, #b9770e, #f1c40f); color: #333; }
+.stat-card.scope3 { background: linear-gradient(135deg, #1f618d, #3498db); }
 
 .stat-card .stat-value {
   font-size: 1.8rem;
@@ -344,6 +347,37 @@ tr.approved-row td {
 .co2-value {
   font-weight: 700;
   color: var(--primary-dark);
+}
+
+/* ===== Icon-only action buttons ===== */
+.btn-icon {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon .bi {
+  margin: 0 !important;
+}
+
+/* ===== Badge variants ===== */
+.badge-fuel {
+  background-color: var(--fuel-color);
+  color: #fff;
+}
+
+/* ===== Notification items ===== */
+.notification-item {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.notification-item:hover {
+  background: var(--primary-bg);
 }
 
 /* ===== Scrollable table wrapper ===== */

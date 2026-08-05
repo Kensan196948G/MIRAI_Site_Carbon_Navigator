@@ -5,15 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MIRAI Site Carbon Navigator</title>
 
-  <!-- Bootstrap 5 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
         integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
         crossorigin="anonymous">
-
-  <!-- Bootstrap Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-
-  <!-- Custom styles -->
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
@@ -30,15 +25,20 @@
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="mainNav">
-      <ul class="navbar-nav ms-auto gap-1">
+      <ul class="navbar-nav ms-auto gap-1 align-items-lg-center">
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="dashboard" aria-label="ダッシュボード">
+            <i class="bi bi-speedometer2 me-1" aria-hidden="true"></i>ダッシュボード
+          </a>
+        </li>
         <li class="nav-item">
           <a class="nav-link" href="#" data-page="projects" aria-label="工事一覧">
-            <i class="bi bi-building me-1" aria-hidden="true"></i>工事一覧
+            <i class="bi bi-building me-1" aria-hidden="true"></i>工事
           </a>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="#" data-page="activities" aria-label="活動量登録">
-            <i class="bi bi-clipboard-data me-1" aria-hidden="true"></i>活動量登録
+            <i class="bi bi-clipboard-data me-1" aria-hidden="true"></i>活動量
           </a>
         </li>
         <li class="nav-item">
@@ -51,6 +51,69 @@
             <i class="bi bi-file-earmark-bar-graph me-1" aria-hidden="true"></i>レポート
           </a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="factors" aria-label="排出係数">
+            <i class="bi bi-database me-1" aria-hidden="true"></i>係数
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="actions" aria-label="削減アクション">
+            <i class="bi bi-lightbulb me-1" aria-hidden="true"></i>削減アクション
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="feedbacks" aria-label="現場フィードバック">
+            <i class="bi bi-chat-left-text me-1" aria-hidden="true"></i>フィードバック
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="sbti" aria-label="SBTi目標">
+            <i class="bi bi-bullseye me-1" aria-hidden="true"></i>SBTi
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-page="credits" aria-label="カーボンクレジット">
+            <i class="bi bi-patch-check me-1" aria-hidden="true"></i>クレジット
+          </a>
+        </li>
+        <li class="nav-item d-none" id="auditNavItem">
+          <a class="nav-link" href="#" data-page="audit" aria-label="監査ログ">
+            <i class="bi bi-journal-check me-1" aria-hidden="true"></i>監査
+          </a>
+        </li>
+        <li class="nav-item d-none" id="usersNavItem">
+          <a class="nav-link" href="#" data-page="users" aria-label="ユーザー管理">
+            <i class="bi bi-people me-1" aria-hidden="true"></i>ユーザー
+          </a>
+        </li>
+        <li class="nav-item ms-lg-2" id="authNavArea">
+          <div class="dropdown d-inline-block me-2">
+            <button class="btn btn-sm btn-outline-light position-relative" type="button"
+                    data-bs-toggle="dropdown" aria-expanded="false" aria-label="通知">
+              <i class="bi bi-bell" aria-hidden="true"></i>
+              <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" id="notifBadge">0</span>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end p-0 shadow" id="notificationMenu"
+                 style="width:360px;max-height:420px;overflow-y:auto;">
+              <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                <strong class="small">通知</strong>
+                <button class="btn btn-sm btn-outline-primary" onclick="markAllNotificationsRead()" type="button">
+                  <i class="bi bi-check2-all me-1" aria-hidden="true"></i>すべて既読
+                </button>
+              </div>
+              <div id="notificationList" class="p-2">
+                <p class="text-muted small text-center my-3">通知はありません</p>
+              </div>
+            </div>
+          </div>
+          <span class="navbar-text text-white-50 me-2 d-none d-lg-inline" id="userLabel"></span>
+          <button class="btn btn-sm btn-outline-light me-2" onclick="openSecurityModal()" type="button" id="securityBtn">
+            <i class="bi bi-shield-lock me-1" aria-hidden="true"></i>セキュリティ
+          </button>
+          <button class="btn btn-sm btn-outline-light" onclick="logout()" type="button" id="logoutBtn">
+            <i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i>ログアウト
+          </button>
+        </li>
       </ul>
     </div>
   </div>
@@ -59,18 +122,144 @@
 <!-- ===== Main ===== -->
 <main class="container-fluid px-4 py-4" id="mainContent">
 
-  <!-- ========================================
-       Section 1: 工事一覧
-       ======================================== -->
+  <!-- ============ Dashboard ============ -->
+  <section id="section-dashboard" class="page-section" aria-labelledby="dashboard-heading">
+    <div class="page-header">
+      <h2 id="dashboard-heading"><i class="bi bi-speedometer2 me-2" aria-hidden="true"></i>ダッシュボード</h2>
+      <p>全工事のCO2排出量・未算定データ・月次推移をひと目で確認できます。</p>
+    </div>
+
+    <div class="row g-3 mb-4" aria-label="全体サマリー">
+      <div class="col-6 col-md-3 col-xl">
+        <div class="stat-card total">
+          <div class="stat-value" id="dashProjects">-</div>
+          <div class="stat-unit">件</div>
+          <div class="stat-label">🏗️ 工事数</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 col-xl">
+        <div class="stat-card fuel">
+          <div class="stat-value" id="dashTotal">-</div>
+          <div class="stat-unit">t-CO2</div>
+          <div class="stat-label">🌍 総排出量</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 col-xl">
+        <div class="stat-card material">
+          <div class="stat-value" id="dashMissing">-</div>
+          <div class="stat-unit">件</div>
+          <div class="stat-label">⚠️ 係数未設定</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 col-xl">
+        <div class="stat-card transport">
+          <div class="stat-value" id="dashApproved">-</div>
+          <div class="stat-unit">件</div>
+          <div class="stat-label">✅ 承認済活動量</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="card h-100">
+          <div class="card-header"><i class="bi bi-graph-up me-2" aria-hidden="true"></i>全工事 月次CO2排出推移</div>
+          <div class="card-body">
+            <div class="chart-container"><canvas id="dashTrendChart" aria-label="月次CO2排出推移"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card h-100">
+          <div class="card-header"><i class="bi bi-pie-chart me-2" aria-hidden="true"></i>カテゴリ別排出割合</div>
+          <div class="card-body d-flex align-items-center justify-content-center">
+            <div class="chart-container w-100"><canvas id="dashCategoryChart" aria-label="カテゴリ別円グラフ"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+      <div class="col-lg-7">
+        <div class="card h-100">
+          <div class="card-header"><i class="bi bi-bullseye me-2" aria-hidden="true"></i>SBTi目標進捗</div>
+          <div class="card-body" id="dashSbtiBody">
+            <p class="text-muted small mb-0">SBTi目標が未設定です。「SBTi」ページから登録できます。</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="card h-100">
+          <div class="card-header"><i class="bi bi-magic me-2" aria-hidden="true"></i>PoCデモデータ</div>
+          <div class="card-body">
+            <p class="text-muted small mb-2" id="demoStatusText">デモデータ: 未生成</p>
+            <div class="d-flex gap-2 flex-wrap" data-role-min="admin">
+              <button class="btn btn-sm btn-primary" onclick="generateDemoData()" type="button">
+                <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>生成（2現場×7ヶ月）
+              </button>
+              <button class="btn btn-sm btn-outline-danger" onclick="clearDemoData()" type="button">
+                <i class="bi bi-trash me-1" aria-hidden="true"></i>削除
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+      <div class="col-lg-7">
+        <div class="card h-100">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-bell me-2" aria-hidden="true"></i>督促状況（当月）</span>
+            <button class="btn btn-sm btn-outline-primary" onclick="sendReminders()" type="button" data-role-min="admin">
+              <i class="bi bi-send me-1" aria-hidden="true"></i>督促送信
+            </button>
+          </div>
+          <div class="card-body p-2" id="reminderList">
+            <p class="text-muted small mb-0">読み込み中...</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="card h-100">
+          <div class="card-header"><i class="bi bi-archive me-2" aria-hidden="true"></i>運用・バックアップ</div>
+          <div class="card-body">
+            <p class="text-muted small mb-2">全テーブルをZIP(JSON)でエクスポートします。</p>
+            <button class="btn btn-sm btn-outline-dark" onclick="exportFull()" type="button" data-role-min="admin">
+              <i class="bi bi-download me-1" aria-hidden="true"></i>全量エクスポート
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-header"><i class="bi bi-calendar-check me-2" aria-hidden="true"></i>月次スケジュール（当月）</div>
+      <div class="card-body p-2" id="monthScheduleList">
+        <p class="text-muted small mb-0">読み込み中...</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Projects ============ -->
   <section id="section-projects" class="page-section" aria-labelledby="projects-heading">
-    <div class="page-header d-flex justify-content-between align-items-center">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
       <div>
         <h2 id="projects-heading"><i class="bi bi-building me-2" aria-hidden="true"></i>工事一覧</h2>
-        <p>登録済みの工事を管理します。行をクリックすると各ページで対象工事として使用されます。</p>
+        <p>工事を登録・編集します。行クリックで選択工事を設定できます。</p>
       </div>
-      <button class="btn btn-primary" onclick="openNewProjectModal()" type="button">
-        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>新規登録
-      </button>
+      <span class="d-flex gap-2 flex-wrap" data-role-min="site">
+        <button class="btn btn-outline-primary" onclick="downloadProjectTemplate()" type="button">
+          <i class="bi bi-download me-1" aria-hidden="true"></i>取込テンプレート
+        </button>
+        <input type="file" id="projectImportFile" class="form-control form-control-sm" accept=".xlsx,.xlsm" style="max-width:200px">
+        <button class="btn btn-outline-success" onclick="importProjects()" type="button">
+          <i class="bi bi-upload me-1" aria-hidden="true"></i>一括取込
+        </button>
+        <button class="btn btn-primary" onclick="openProjectModal()" type="button">
+          <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>新規登録
+        </button>
+      </span>
     </div>
 
     <div class="card">
@@ -84,15 +273,12 @@
                 <th scope="col">工種</th>
                 <th scope="col">開始日</th>
                 <th scope="col">終了日</th>
-                <th scope="col" style="width:90px">選択</th>
+                <th scope="col" class="text-center">選択</th>
+                <th scope="col" class="text-center">操作</th>
               </tr>
             </thead>
             <tbody id="projectsTableBody">
-              <tr>
-                <td colspan="6" class="text-center py-4 text-muted">
-                  <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>読み込み中...
-                </td>
-              </tr>
+              <tr><td colspan="7" class="text-center py-4 text-muted">読み込み中...</td></tr>
             </tbody>
           </table>
         </div>
@@ -100,97 +286,136 @@
     </div>
   </section>
 
-  <!-- ========================================
-       Section 2: 活動量登録
-       ======================================== -->
+  <!-- ============ Activities ============ -->
   <section id="section-activities" class="page-section" aria-labelledby="activities-heading">
     <div class="page-header">
       <h2 id="activities-heading"><i class="bi bi-clipboard-data me-2" aria-hidden="true"></i>活動量登録</h2>
-      <p>工事・対象月を選択して活動量データを登録・確認します。</p>
+      <p>工事・対象月を選択して活動量データを登録・一括取込・確認します。</p>
     </div>
 
-    <!-- Filter bar -->
     <div class="filter-bar" role="search" aria-label="活動量フィルター">
       <div class="form-group">
         <label for="actProjectSelect" class="form-label">工事</label>
-        <select id="actProjectSelect" class="form-select project-select"
-                onchange="onActivityFilterChange()" aria-label="工事を選択">
-          <option value="">-- 工事を選択 --</option>
-        </select>
+        <select id="actProjectSelect" class="form-select project-select" onchange="onActivityFilterChange()"></select>
       </div>
       <div class="form-group">
         <label for="actMonthPicker" class="form-label">対象月</label>
-        <input type="month" id="actMonthPicker" class="form-control"
-               onchange="onActivityFilterChange()" aria-label="対象月を選択">
+        <input type="month" id="actMonthPicker" class="form-control" onchange="onActivityFilterChange()">
       </div>
     </div>
 
+    <div id="activityLockAlert" class="alert alert-secondary d-none" role="alert"></div>
+
     <div class="row g-4">
-      <!-- Entry form -->
       <div class="col-lg-5">
-        <div class="card">
-          <div class="card-header">
-            <i class="bi bi-plus-circle me-2" aria-hidden="true"></i>活動量を追加
-          </div>
+        <div class="card mb-4">
+          <div class="card-header"><i class="bi bi-plus-circle me-2" aria-hidden="true"></i>活動量を追加</div>
           <div class="card-body">
             <form id="activityForm" novalidate aria-label="活動量登録フォーム">
               <div class="mb-3">
-                <label for="fCategory" class="form-label">カテゴリ <span class="text-danger" aria-hidden="true">*</span></label>
-                <select id="fCategory" class="form-select" required aria-required="true">
+                <label for="fCategory" class="form-label">カテゴリ <span class="text-danger">*</span></label>
+                <select id="fCategory" class="form-select" required>
                   <option value="">-- 選択 --</option>
                   <option value="fuel">🔥 燃料</option>
                   <option value="power">⚡ 電力</option>
                   <option value="material">🏗️ 材料</option>
                   <option value="transport">🚚 輸送</option>
+                  <option value="machine">🚜 建機</option>
+                  <option value="ship">🚢 船舶</option>
+                  <option value="waste">🗑️ 廃棄物</option>
+                  <option value="business_travel">🚄 出張交通</option>
+                  <option value="commuting">🚗 通勤</option>
+                  <option value="water">💧 水</option>
                 </select>
-                <div class="invalid-feedback">カテゴリを選択してください</div>
               </div>
-
               <div class="mb-3">
-                <label for="fItemName" class="form-label">品目 <span class="text-danger" aria-hidden="true">*</span></label>
-                <input type="text" id="fItemName" class="form-control"
-                       placeholder="例: 軽油、電力（買電）" required aria-required="true" maxlength="200">
-                <div class="invalid-feedback">品目を入力してください</div>
+                <label for="fItemName" class="form-label">品目 <span class="text-danger">*</span></label>
+                <input type="text" id="fItemName" class="form-control" placeholder="例: 軽油" required maxlength="200">
               </div>
-
               <div class="row g-2 mb-3">
                 <div class="col-7">
-                  <label for="fQuantity" class="form-label">数量 <span class="text-danger" aria-hidden="true">*</span></label>
-                  <input type="number" id="fQuantity" class="form-control"
-                         placeholder="0.000" min="0" step="any" required aria-required="true">
-                  <div class="invalid-feedback">数量を入力してください</div>
+                  <label for="fQuantity" class="form-label">数量 <span class="text-danger">*</span></label>
+                  <input type="number" id="fQuantity" class="form-control" placeholder="0.000" min="0" step="any" required>
                 </div>
                 <div class="col-5">
-                  <label for="fUnit" class="form-label">単位 <span class="text-danger" aria-hidden="true">*</span></label>
-                  <input type="text" id="fUnit" class="form-control"
-                         placeholder="L / kWh / t" required aria-required="true" maxlength="20">
-                  <div class="invalid-feedback">単位を入力してください</div>
+                  <label for="fUnit" class="form-label">単位 <span class="text-danger">*</span></label>
+                  <input type="text" id="fUnit" class="form-control" placeholder="L / kWh / t" required maxlength="20">
                 </div>
               </div>
-
               <div class="mb-3">
                 <label for="fSourceFile" class="form-label">元ファイル</label>
-                <input type="text" id="fSourceFile" class="form-control"
-                       placeholder="伝票番号・ファイル名など（任意）" maxlength="300">
+                <input type="text" id="fSourceFile" class="form-control" placeholder="伝票番号・ファイル名など（任意）" maxlength="300">
               </div>
-
-              <button type="button" class="btn btn-primary w-100" onclick="submitActivityForm()">
+              <div class="mb-3">
+                <label for="fSupplier" class="form-label">電力供給者（電力のみ任意）</label>
+                <input type="text" id="fSupplier" class="form-control" placeholder="例: 東京電力EP" maxlength="100">
+              </div>
+              <div class="mb-3">
+                <label for="fNote" class="form-label">備考</label>
+                <input type="text" id="fNote" class="form-control" placeholder="任意" maxlength="500">
+              </div>
+              <button type="button" class="btn btn-primary w-100" onclick="submitActivityForm()" data-role-min="site">
                 <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>登録する
               </button>
             </form>
           </div>
         </div>
+
+        <div class="card">
+          <div class="card-header"><i class="bi bi-file-earmark-excel me-2" aria-hidden="true"></i>Excel 一括取込</div>
+          <div class="card-body" data-role-min="site">
+            <p class="text-muted small mb-2">テンプレートをダウンロードして入力し、アップロードしてください。</p>
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-sm btn-outline-primary" onclick="downloadTemplate()" type="button">
+                <i class="bi bi-download me-1" aria-hidden="true"></i>テンプレート
+              </button>
+              <input type="file" id="importFile" class="form-control form-control-sm" accept=".xlsx,.xlsm" style="max-width:220px">
+              <button class="btn btn-sm btn-success" onclick="importActivities()" type="button">
+                <i class="bi bi-upload me-1" aria-hidden="true"></i>取込実行
+              </button>
+            </div>
+            <div id="importResult" class="mt-2 small"></div>
+          </div>
+        </div>
+
+        <div class="card mt-4">
+          <div class="card-header"><i class="bi bi-arrows-angle-contract me-2" aria-hidden="true"></i>単位換算</div>
+          <div class="card-body">
+            <div class="d-flex gap-2 mb-2 flex-wrap">
+              <input type="number" id="unitValue" class="form-control form-control-sm" placeholder="値" style="max-width:100px" step="any">
+              <select id="unitFrom" class="form-select form-select-sm" style="max-width:110px">
+                <option value="L">L</option><option value="kL">kL</option><option value="m3">m3</option>
+                <option value="t">t</option><option value="kg">kg</option><option value="kWh">kWh</option>
+                <option value="MWh">MWh</option><option value="t-km">t-km</option><option value="km">km</option>
+              </select>
+              <span class="align-self-center">→</span>
+              <select id="unitTo" class="form-select form-select-sm" style="max-width:110px">
+                <option value="L">L</option><option value="kL">kL</option><option value="m3">m3</option>
+                <option value="t">t</option><option value="kg">kg</option><option value="kWh">kWh</option>
+                <option value="MWh">MWh</option><option value="t-km">t-km</option><option value="km">km</option>
+              </select>
+              <button class="btn btn-sm btn-outline-primary" onclick="convertUnit()" type="button">換算</button>
+            </div>
+            <div id="unitResult" class="small text-muted">換算結果がここに表示されます</div>
+          </div>
+        </div>
       </div>
 
-      <!-- Activity list -->
       <div class="col-lg-7">
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <span><i class="bi bi-list-ul me-2" aria-hidden="true"></i>登録済み活動量</span>
-            <button class="btn btn-sm btn-success" onclick="bulkApprove()" type="button"
-                    aria-label="すべての活動量を一括承認">
-              <i class="bi bi-check-all me-1" aria-hidden="true"></i>一括承認
-            </button>
+            <span class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-sm btn-outline-primary" onclick="copyPreviousMonth()" type="button" data-role-min="site">
+                <i class="bi bi-copy me-1" aria-hidden="true"></i>前月からコピー
+              </button>
+              <button class="btn btn-sm btn-outline-info" onclick="importTelematics()" type="button" data-role-min="site">
+                <i class="bi bi-truck-front me-1" aria-hidden="true"></i>テレマティクス取込
+              </button>
+              <button class="btn btn-sm btn-success" onclick="bulkApprove()" type="button" data-role-min="reviewer">
+                <i class="bi bi-check-all me-1" aria-hidden="true"></i>一括承認
+              </button>
+            </span>
           </div>
           <div class="card-body p-0">
             <div class="table-responsive">
@@ -204,14 +429,11 @@
                     <th scope="col">元ファイル</th>
                     <th scope="col" class="text-center">承認</th>
                     <th scope="col" class="text-center">状態</th>
+                    <th scope="col" class="text-center">操作</th>
                   </tr>
                 </thead>
                 <tbody id="activitiesTableBody">
-                  <tr>
-                    <td colspan="7" class="text-center py-4 text-muted">
-                      工事と対象月を選択してください
-                    </td>
-                  </tr>
+                  <tr><td colspan="8" class="text-center py-4 text-muted">工事と対象月を選択してください</td></tr>
                 </tbody>
               </table>
             </div>
@@ -221,26 +443,21 @@
     </div>
   </section>
 
-  <!-- ========================================
-       Section 3: CO2算定
-       ======================================== -->
+  <!-- ============ Calculation ============ -->
   <section id="section-calculation" class="page-section" aria-labelledby="calculation-heading">
     <div class="page-header">
       <h2 id="calculation-heading"><i class="bi bi-calculator me-2" aria-hidden="true"></i>CO2算定</h2>
-      <p>工事・対象月を選択して CO2 排出量を算定します。</p>
+      <p>工事・対象月を選択して CO2 排出量を算定します（承認済みデータのみ対象）。</p>
     </div>
 
-    <!-- Filter + run -->
     <div class="filter-bar" role="search" aria-label="算定フィルター">
       <div class="form-group">
         <label for="calcProjectSelect" class="form-label">工事</label>
-        <select id="calcProjectSelect" class="form-select project-select" aria-label="工事を選択">
-          <option value="">-- 工事を選択 --</option>
-        </select>
+        <select id="calcProjectSelect" class="form-select project-select"></select>
       </div>
       <div class="form-group">
         <label for="calcMonthPicker" class="form-label">対象月</label>
-        <input type="month" id="calcMonthPicker" class="form-control" aria-label="対象月を選択">
+        <input type="month" id="calcMonthPicker" class="form-control">
       </div>
       <div class="form-group d-flex align-items-end">
         <button class="btn btn-primary" onclick="executeCalculation()" type="button">
@@ -249,55 +466,67 @@
       </div>
     </div>
 
-    <!-- Results (hidden until calculation runs) -->
-    <div id="calcResultsSection" style="display:none;">
+    <div id="missingFactorsAlert" class="alert alert-warning d-none" role="alert"></div>
+    <div id="anomalyAlert" class="alert alert-danger d-none" role="alert"></div>
+    <div id="calcLockAlert" class="alert alert-secondary d-none" role="alert"></div>
+    <div id="missingMonthsAlert" class="alert alert-info d-none" role="alert"></div>
 
-      <!-- Summary stat cards -->
+    <div id="calcResultsSection" style="display:none;">
+      <div class="card mb-4" id="benchmarkCard" style="display:none;">
+        <div class="card-header"><i class="bi bi-activity me-2" aria-hidden="true"></i>同工種ベンチマーク</div>
+        <div class="card-body" id="benchmarkBody"></div>
+      </div>
+
       <div class="row g-3 mb-4" aria-label="CO2排出量サマリー">
-        <div class="col-6 col-md-4 col-xl-2">
-          <div class="stat-card total">
-            <div class="stat-value" id="statTotal">-</div>
-            <div class="stat-unit">t-CO2</div>
-            <div class="stat-label">🌍 合計</div>
+        <div class="col-6 col-md-4 col-xl-2"><div class="stat-card total"><div class="stat-value" id="statTotal">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">🌍 合計</div></div></div>
+        <div class="col-6 col-md-4 col-xl-2"><div class="stat-card fuel"><div class="stat-value" id="statFuel">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">🔥 燃料</div></div></div>
+        <div class="col-6 col-md-4 col-xl-2"><div class="stat-card power"><div class="stat-value" id="statPower">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">⚡ 電力</div></div></div>
+        <div class="col-6 col-md-4 col-xl-2"><div class="stat-card material"><div class="stat-value" id="statMaterial">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">🏗️ 材料</div></div></div>
+        <div class="col-6 col-md-4 col-xl-2"><div class="stat-card transport"><div class="stat-value" id="statTransport">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">🚚 輸送</div></div></div>
+      </div>
+
+      <div class="row g-3 mb-4" aria-label="Scope別サマリー">
+        <div class="col-4"><div class="stat-card scope1"><div class="stat-value" id="statScope1">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">Scope1 直接排出</div></div></div>
+        <div class="col-4"><div class="stat-card scope2"><div class="stat-value" id="statScope2">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">Scope2 電力</div></div></div>
+        <div class="col-4"><div class="stat-card scope3"><div class="stat-value" id="statScope3">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">Scope3 間接排出</div></div></div>
+      </div>
+
+      <div class="row g-3 mb-4" aria-label="比較サマリー">
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center"><div class="small text-muted">前月比</div><div class="fs-4 fw-bold" id="cmpMom">-</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center"><div class="small text-muted">前年同月比</div><div class="fs-4 fw-bold" id="cmpYoy">-</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center"><div class="small text-muted">前月排出量</div><div class="fs-5 fw-bold" id="cmpPrev">-</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body text-center"><div class="small text-muted">前年同月排出量</div><div class="fs-5 fw-bold" id="cmpPrevYear">-</div></div></div></div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-sliders me-2" aria-hidden="true"></i>削減シナリオシミュレーション</div>
+        <div class="card-body">
+          <p class="text-muted small">各カテゴリの削減率(%)を入力して「試算」を押すと、削減量とScope別への影響を計算します。</p>
+          <div class="d-flex gap-2 flex-wrap mb-2" id="scenarioInputs">
+            <div><label class="form-label small mb-0">燃料</label><input type="number" id="scFuel" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div><label class="form-label small mb-0">電力</label><input type="number" id="scPower" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div><label class="form-label small mb-0">材料</label><input type="number" id="scMaterial" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div><label class="form-label small mb-0">輸送</label><input type="number" id="scTransport" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div><label class="form-label small mb-0">建機</label><input type="number" id="scMachine" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div><label class="form-label small mb-0">船舶</label><input type="number" id="scShip" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div><label class="form-label small mb-0">廃棄物</label><input type="number" id="scWaste" class="form-control form-control-sm" style="width:90px" value="0" step="any"></div>
+            <div class="align-self-end"><button class="btn btn-sm btn-primary" onclick="runScenario()" type="button"><i class="bi bi-calculator me-1" aria-hidden="true"></i>試算</button></div>
           </div>
+          <div id="scenarioResult" class="small"></div>
         </div>
-        <div class="col-6 col-md-4 col-xl-2">
-          <div class="stat-card fuel">
-            <div class="stat-value" id="statFuel">-</div>
-            <div class="stat-unit">t-CO2</div>
-            <div class="stat-label">🔥 燃料</div>
-          </div>
-        </div>
-        <div class="col-6 col-md-4 col-xl-2">
-          <div class="stat-card power">
-            <div class="stat-value" id="statPower">-</div>
-            <div class="stat-unit">t-CO2</div>
-            <div class="stat-label">⚡ 電力</div>
-          </div>
-        </div>
-        <div class="col-6 col-md-4 col-xl-2">
-          <div class="stat-card material">
-            <div class="stat-value" id="statMaterial">-</div>
-            <div class="stat-unit">t-CO2</div>
-            <div class="stat-label">🏗️ 材料</div>
-          </div>
-        </div>
-        <div class="col-6 col-md-4 col-xl-2">
-          <div class="stat-card transport">
-            <div class="stat-value" id="statTransport">-</div>
-            <div class="stat-unit">t-CO2</div>
-            <div class="stat-label">🚚 輸送</div>
-          </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-stars me-2" aria-hidden="true"></i>AI削減アシスタント（実績ベース提案）</div>
+        <div class="card-body" id="assistantList">
+          <p class="text-muted small mb-0">算定実行後に、同工種の削減実績を踏まえた提案が表示されます。</p>
         </div>
       </div>
 
       <div class="row g-4 mb-4">
-        <!-- Detail table -->
         <div class="col-lg-8">
           <div class="card h-100">
-            <div class="card-header">
-              <i class="bi bi-table me-2" aria-hidden="true"></i>算定明細
-            </div>
+            <div class="card-header"><i class="bi bi-table me-2" aria-hidden="true"></i>算定明細</div>
             <div class="card-body p-0">
               <div class="table-responsive">
                 <table class="table table-hover table-sm mb-0" aria-label="CO2算定明細テーブル">
@@ -308,134 +537,437 @@
                       <th scope="col" class="text-end">活動量</th>
                       <th scope="col">単位</th>
                       <th scope="col" class="text-end">排出係数</th>
+                      <th scope="col" class="text-end">係数適用開始</th>
                       <th scope="col" class="text-end">CO2(kg)</th>
                       <th scope="col" class="text-end">CO2(t)</th>
                     </tr>
                   </thead>
-                  <tbody id="calcTableBody">
-                    <tr>
-                      <td colspan="7" class="text-center text-muted py-3">算定を実行してください</td>
-                    </tr>
-                  </tbody>
+                  <tbody id="calcTableBody"></tbody>
                 </table>
               </div>
             </div>
           </div>
         </div>
-
-        <!-- Chart -->
         <div class="col-lg-4">
           <div class="card h-100">
-            <div class="card-header">
-              <i class="bi bi-pie-chart me-2" aria-hidden="true"></i>カテゴリ別排出割合
-            </div>
+            <div class="card-header"><i class="bi bi-pie-chart me-2" aria-hidden="true"></i>カテゴリ別排出割合</div>
             <div class="card-body d-flex align-items-center justify-content-center">
-              <div class="chart-container w-100">
-                <canvas id="emissionChart" aria-label="CO2排出量カテゴリ別円グラフ" role="img"></canvas>
-              </div>
+              <div class="chart-container w-100"><canvas id="emissionChart" aria-label="CO2排出量カテゴリ別円グラフ"></canvas></div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Reduction suggestions -->
       <div class="card">
-        <div class="card-header">
-          <i class="bi bi-lightbulb me-2" aria-hidden="true"></i>削減ナビ — 推奨アクション
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-lightbulb me-2" aria-hidden="true"></i>削減ナビ — 推奨アクション</span>
+          <button class="btn btn-sm btn-outline-primary" onclick="createActionFromSuggestions()" type="button" data-role-min="site">
+            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>アクションに登録
+          </button>
         </div>
-        <div class="card-body">
-          <div id="reductionList">
-            <p class="text-muted small mb-0">算定実行後に削減提案が表示されます。</p>
-          </div>
+        <div class="card-body" id="reductionList">
+          <p class="text-muted small mb-0">算定実行後に削減提案が表示されます。</p>
         </div>
       </div>
-
-    </div><!-- /calcResultsSection -->
+    </div>
   </section>
 
-  <!-- ========================================
-       Section 4: レポート
-       ======================================== -->
+  <!-- ============ Reports ============ -->
   <section id="section-reports" class="page-section" aria-labelledby="reports-heading">
     <div class="page-header">
       <h2 id="reports-heading"><i class="bi bi-file-earmark-bar-graph me-2" aria-hidden="true"></i>レポート</h2>
       <p>月次 CO2 排出レポートのダウンロードと推移グラフを確認できます。</p>
     </div>
 
-    <!-- Filter bar -->
     <div class="filter-bar" role="search" aria-label="レポートフィルター">
       <div class="form-group">
         <label for="rptProjectSelect" class="form-label">工事</label>
-        <select id="rptProjectSelect" class="form-select project-select"
-                onchange="onReportFilterChange()" aria-label="工事を選択">
-          <option value="">-- 工事を選択 --</option>
-        </select>
+        <select id="rptProjectSelect" class="form-select project-select" onchange="onReportFilterChange()"></select>
       </div>
       <div class="form-group">
         <label for="rptMonthPicker" class="form-label">対象月</label>
-        <input type="month" id="rptMonthPicker" class="form-control" aria-label="対象月を選択">
+        <input type="month" id="rptMonthPicker" class="form-control">
       </div>
-      <div class="form-group d-flex align-items-end">
-        <button class="btn btn-success" onclick="downloadCurrentReport()" type="button">
-          <i class="bi bi-file-earmark-excel me-1" aria-hidden="true"></i>Excel ダウンロード
+      <div class="form-group d-flex align-items-end gap-2">
+        <button class="btn btn-success" onclick="downloadCurrentReport('xlsx')" type="button">
+          <i class="bi bi-file-earmark-excel me-1" aria-hidden="true"></i>Excel
         </button>
+        <button class="btn btn-outline-success" onclick="downloadCurrentReport('csv')" type="button">
+          <i class="bi bi-filetype-csv me-1" aria-hidden="true"></i>CSV
+        </button>
+        <button class="btn btn-outline-danger" onclick="downloadCurrentReport('pdf')" type="button">
+          <i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>PDF
+        </button>
+        <button class="btn btn-outline-secondary" onclick="toggleMonthClose()" type="button" data-role-min="reviewer" id="closeMonthBtn">
+          <i class="bi bi-lock me-1" aria-hidden="true"></i>月次締め
+        </button>
+        <span class="badge bg-secondary align-self-center d-none" id="closedBadge">締め済み</span>
       </div>
     </div>
 
-    <!-- Monthly trend chart -->
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-graph-up me-2" aria-hidden="true"></i>月次 CO2 排出推移</span>
-        <button class="btn btn-sm btn-outline-primary" onclick="loadMonthlyTrend()" type="button"
-                aria-label="トレンドグラフを更新">
+        <button class="btn btn-sm btn-outline-primary" onclick="loadMonthlyTrend()" type="button">
           <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>更新
         </button>
       </div>
       <div class="card-body">
-        <div class="chart-container">
-          <canvas id="trendChart" aria-label="月次CO2排出推移折れ線グラフ" role="img"></canvas>
+        <div class="chart-container"><canvas id="trendChart" aria-label="月次CO2排出推移折れ線グラフ"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Factors ============ -->
+  <section id="section-factors" class="page-section" aria-labelledby="factors-heading">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h2 id="factors-heading"><i class="bi bi-database me-2" aria-hidden="true"></i>排出係数マスタ</h2>
+        <p>排出係数の登録・変更履歴を管理します（変更時は再算定が必要です）。</p>
+      </div>
+      <button class="btn btn-primary" onclick="openFactorModal()" type="button" data-role-min="admin">
+        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>新規登録
+      </button>
+    </div>
+
+    <div class="filter-bar" role="search" aria-label="係数フィルター">
+      <div class="form-group">
+        <label for="factorCategoryFilter" class="form-label">カテゴリ</label>
+        <select id="factorCategoryFilter" class="form-select" onchange="loadFactors()">
+          <option value="">すべて</option>
+          <option value="fuel">燃料</option>
+          <option value="power">電力</option>
+          <option value="material">材料</option>
+          <option value="transport">輸送</option>
+          <option value="machine">建機</option>
+          <option value="ship">船舶</option>
+          <option value="waste">廃棄物</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0" aria-label="排出係数テーブル">
+            <thead>
+              <tr>
+                <th scope="col">カテゴリ</th>
+                <th scope="col">品目</th>
+                <th scope="col">単位</th>
+                <th scope="col" class="text-end">係数 (kg-CO2/unit)</th>
+                <th scope="col">適用開始</th>
+                <th scope="col">出典</th>
+                <th scope="col" class="text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="factorsTableBody">
+              <tr><td colspan="7" class="text-center py-4 text-muted">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="card mt-4">
+      <div class="card-header"><i class="bi bi-journal-richtext me-2" aria-hidden="true"></i>年次環境報告書</div>
+      <div class="card-body">
+        <p class="text-muted small mb-2">工事別排出量・Scope別集計・SBTi進捗・削減実績・クレジットを1冊にまとめたPDFを生成します。</p>
+        <div class="d-flex gap-2 align-items-end">
+          <div>
+            <label for="annualYear" class="form-label small">対象年</label>
+            <input type="number" id="annualYear" class="form-control" min="2020" max="2100" style="width:120px">
+          </div>
+          <button class="btn btn-success" onclick="downloadAnnualReport()" type="button">
+            <i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>PDF生成
+          </button>
         </div>
       </div>
     </div>
   </section>
 
-</main><!-- /main -->
+  <!-- ============ Reduction Actions ============ -->
+  <section id="section-actions" class="page-section" aria-labelledby="actions-heading">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h2 id="actions-heading"><i class="bi bi-lightbulb me-2" aria-hidden="true"></i>削減アクション</h2>
+        <p>削減ナビの提案をアクションとして登録し、実施状況を管理します。</p>
+      </div>
+      <button class="btn btn-primary" onclick="openActionModal()" type="button" data-role-min="site">
+        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>アクション登録
+      </button>
+    </div>
 
-<!-- ===== New Project Modal ===== -->
-<div class="modal fade" id="projectModal" tabindex="-1"
-     aria-labelledby="projectModalLabel" aria-hidden="true">
+    <div class="filter-bar" role="search" aria-label="アクションフィルター">
+      <div class="form-group">
+        <label for="actionProjectSelect" class="form-label">工事</label>
+        <select id="actionProjectSelect" class="form-select project-select" onchange="loadActions()"></select>
+      </div>
+      <div class="form-group">
+        <label for="actionStatusFilter" class="form-label">状態</label>
+        <select id="actionStatusFilter" class="form-select" onchange="loadActions()">
+          <option value="">すべて</option>
+          <option value="planned">計画</option>
+          <option value="implemented">実施済み</option>
+          <option value="declined">見送り</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0" aria-label="削減アクションテーブル">
+            <thead>
+              <tr>
+                <th scope="col">工事</th>
+                <th scope="col">対象月</th>
+                <th scope="col">カテゴリ</th>
+                <th scope="col">提案内容</th>
+                <th scope="col">状態</th>
+                <th scope="col" class="text-end">想定削減量(kg)</th>
+                <th scope="col" class="text-end">実績削減量(kg)</th>
+                <th scope="col" class="text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="actionsTableBody">
+              <tr><td colspan="8" class="text-center py-4 text-muted">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Audit ============ -->
+  <section id="section-audit" class="page-section" aria-labelledby="audit-heading">
+    <div class="page-header">
+      <h2 id="audit-heading"><i class="bi bi-journal-check me-2" aria-hidden="true"></i>監査ログ</h2>
+      <p>登録・変更・承認・削除・ログインの操作履歴を確認できます。</p>
+    </div>
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0" aria-label="監査ログテーブル">
+            <thead>
+              <tr>
+                <th scope="col">日時</th>
+                <th scope="col">操作者</th>
+                <th scope="col">操作</th>
+                <th scope="col">対象</th>
+                <th scope="col">ID</th>
+                <th scope="col">詳細</th>
+              </tr>
+            </thead>
+            <tbody id="auditTableBody">
+              <tr><td colspan="6" class="text-center py-4 text-muted">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Users ============ -->
+  <section id="section-users" class="page-section" aria-labelledby="users-heading">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h2 id="users-heading"><i class="bi bi-people me-2" aria-hidden="true"></i>ユーザー管理</h2>
+        <p>アカウントの作成・ロール変更・有効/無効化を行います。</p>
+      </div>
+      <button class="btn btn-primary" onclick="openUserModal()" type="button">
+        <i class="bi bi-person-plus me-1" aria-hidden="true"></i>新規ユーザー
+      </button>
+    </div>
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0" aria-label="ユーザーテーブル">
+            <thead>
+              <tr>
+                <th scope="col">ユーザー名</th>
+                <th scope="col">表示名</th>
+                <th scope="col">支店</th>
+                <th scope="col">ロール</th>
+                <th scope="col">状態</th>
+                <th scope="col">作成日</th>
+                <th scope="col" class="text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <tr><td colspan="7" class="text-center py-4 text-muted">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="card mt-4">
+      <div class="card-header"><i class="bi bi-diagram-3 me-2" aria-hidden="true"></i>支店マスタ</div>
+      <div class="card-body">
+        <div class="d-flex gap-2 flex-wrap mb-2" id="branchList"></div>
+        <div class="d-flex gap-2 flex-wrap">
+          <input type="text" id="newBranchName" class="form-control form-control-sm" placeholder="新規支店名" maxlength="100" style="max-width:220px">
+          <button class="btn btn-sm btn-primary" onclick="addBranch()" type="button">
+            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>追加
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Site Feedbacks ============ -->
+  <section id="section-feedbacks" class="page-section" aria-labelledby="feedbacks-heading">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h2 id="feedbacks-heading"><i class="bi bi-chat-left-text me-2" aria-hidden="true"></i>現場フィードバック</h2>
+        <p>現場からの指摘・改善要望を記録し、対応状況を管理します。</p>
+      </div>
+      <button class="btn btn-primary" onclick="openFeedbackModal()" type="button" data-role-min="site">
+        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>フィードバック登録
+      </button>
+    </div>
+    <div class="filter-bar" role="search" aria-label="フィードバックフィルター">
+      <div class="form-group">
+        <label for="fbProjectSelect" class="form-label">工事</label>
+        <select id="fbProjectSelect" class="form-select project-select" onchange="loadFeedbacks()"></select>
+      </div>
+      <div class="form-group">
+        <label for="fbStatusFilter" class="form-label">状態</label>
+        <select id="fbStatusFilter" class="form-select" onchange="loadFeedbacks()">
+          <option value="">すべて</option>
+          <option value="open">未対応</option>
+          <option value="acknowledged">対応中</option>
+          <option value="resolved">解決済み</option>
+        </select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0" aria-label="フィードバックテーブル">
+            <thead>
+              <tr>
+                <th scope="col">工事</th>
+                <th scope="col">対象月</th>
+                <th scope="col">カテゴリ</th>
+                <th scope="col">内容</th>
+                <th scope="col">状態</th>
+                <th scope="col">登録者</th>
+                <th scope="col" class="text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="feedbacksTableBody">
+              <tr><td colspan="7" class="text-center py-4 text-muted">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SBTi ============ -->
+  <section id="section-sbti" class="page-section" aria-labelledby="sbti-heading">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h2 id="sbti-heading"><i class="bi bi-bullseye me-2" aria-hidden="true"></i>SBTi目標管理</h2>
+        <p>Scope別の削減目標と進捗を管理します。</p>
+      </div>
+      <button class="btn btn-primary" onclick="openSbtiModal()" type="button" data-role-min="admin">
+        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>目標登録
+      </button>
+    </div>
+    <div class="row g-3 mb-4" id="sbtiProgressCards"></div>
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0" aria-label="SBTi目標テーブル">
+            <thead>
+              <tr>
+                <th scope="col">Scope</th>
+                <th scope="col">目標名</th>
+                <th scope="col">基準年</th>
+                <th scope="col">目標年</th>
+                <th scope="col" class="text-end">基準排出量(t)</th>
+                <th scope="col" class="text-end">削減率</th>
+                <th scope="col">状態</th>
+                <th scope="col" class="text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="sbtiTableBody">
+              <tr><td colspan="8" class="text-center py-4 text-muted">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Credits ============ -->
+  <section id="section-credits" class="page-section" aria-labelledby="credits-heading">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <h2 id="credits-heading"><i class="bi bi-patch-check me-2" aria-hidden="true"></i>カーボンクレジット / オフセット</h2>
+        <p>J-クレジット・再エネ証書などの保有・充当・無効化を管理します。</p>
+      </div>
+      <button class="btn btn-primary" onclick="openCreditModal()" type="button" data-role-min="admin">
+        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>クレジット登録
+      </button>
+    </div>
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3"><div class="stat-card total"><div class="stat-value" id="creditAvailable">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">利用可能</div></div></div>
+      <div class="col-6 col-md-3"><div class="stat-card transport"><div class="stat-value" id="creditAllocated">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">充当済み</div></div></div>
+      <div class="col-6 col-md-3"><div class="stat-card material"><div class="stat-value" id="creditRetired">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">無効化</div></div></div>
+      <div class="col-6 col-md-3"><div class="stat-card fuel"><div class="stat-value" id="creditTotal">-</div><div class="stat-unit">t-CO2</div><div class="stat-label">保有合計</div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0" aria-label="クレジットテーブル">
+            <thead>
+              <tr>
+                <th scope="col">種別</th>
+                <th scope="col">名称</th>
+                <th scope="col">シリアル</th>
+                <th scope="col" class="text-end">数量(t-CO2)</th>
+                <th scope="col" class="text-end">充当済み</th>
+                <th scope="col">状態</th>
+                <th scope="col">充当先</th>
+                <th scope="col" class="text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="creditsTableBody">
+              <tr><td colspan="8" class="text-center py-4 text-muted">読み込み中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== Project Modal (create/edit) ===== -->
+<div class="modal fade" id="projectModal" tabindex="-1" aria-labelledby="projectModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="projectModalLabel">
-          <i class="bi bi-plus-circle me-2" aria-hidden="true"></i>工事の新規登録
-        </h5>
+        <h5 class="modal-title" id="projectModalLabel">工事の登録</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
       </div>
       <div class="modal-body">
         <form id="projectForm" novalidate aria-label="工事登録フォーム">
+          <input type="hidden" id="fProjectEditId">
           <div class="row g-3">
-            <div class="col-md-4">
-              <label for="fProjectId" class="form-label">工事ID <span class="text-danger" aria-hidden="true">*</span></label>
-              <input type="text" id="fProjectId" class="form-control"
-                     placeholder="PROJ-001" required aria-required="true" maxlength="50">
-              <div class="invalid-feedback">工事IDを入力してください</div>
-            </div>
             <div class="col-md-8">
-              <label for="fProjectName" class="form-label">工事名 <span class="text-danger" aria-hidden="true">*</span></label>
-              <input type="text" id="fProjectName" class="form-control"
-                     placeholder="○○道路改良工事" required aria-required="true" maxlength="200">
-              <div class="invalid-feedback">工事名を入力してください</div>
+              <label for="fProjectName" class="form-label">工事名 <span class="text-danger">*</span></label>
+              <input type="text" id="fProjectName" class="form-control" placeholder="○○道路改良工事" required maxlength="200">
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
               <label for="fBranch" class="form-label">支店</label>
-              <input type="text" id="fBranch" class="form-control"
-                     placeholder="東京支店" maxlength="100">
+              <input type="text" id="fBranch" class="form-control" placeholder="東京支店" maxlength="100">
             </div>
             <div class="col-md-6">
               <label for="fConstructionType" class="form-label">工種</label>
-              <input type="text" id="fConstructionType" class="form-control"
-                     placeholder="道路工事、建築工事 など" maxlength="100">
+              <input type="text" id="fConstructionType" class="form-control" placeholder="道路工事、建築工事 など" maxlength="100">
             </div>
             <div class="col-md-6">
               <label for="fStartDate" class="form-label">開始日</label>
@@ -447,17 +979,510 @@
             </div>
             <div class="col-12">
               <label for="fNotes" class="form-label">備考</label>
-              <textarea id="fNotes" class="form-control" rows="2"
-                        placeholder="補足事項など" maxlength="500"></textarea>
+              <textarea id="fNotes" class="form-control" rows="2" placeholder="補足事項など" maxlength="500"></textarea>
             </div>
           </div>
         </form>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-        <button type="button" class="btn btn-primary" onclick="submitProjectForm()">
-          <i class="bi bi-save me-1" aria-hidden="true"></i>登録する
-        </button>
+        <button type="button" class="btn btn-primary" onclick="submitProjectForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Activity Edit Modal ===== -->
+<div class="modal fade" id="activityEditModal" tabindex="-1" aria-labelledby="activityEditModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="activityEditModalLabel">活動量の編集</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <form id="activityEditForm" novalidate>
+          <input type="hidden" id="eActivityId">
+          <div class="mb-3">
+            <label for="eQuantity" class="form-label">数量 <span class="text-danger">*</span></label>
+            <input type="number" id="eQuantity" class="form-control" min="0" step="any" required>
+          </div>
+          <div class="mb-3">
+            <label for="eUnit" class="form-label">単位 <span class="text-danger">*</span></label>
+            <input type="text" id="eUnit" class="form-control" required maxlength="20">
+          </div>
+          <div class="mb-3">
+            <label for="eSourceFile" class="form-label">元ファイル</label>
+            <input type="text" id="eSourceFile" class="form-control" maxlength="300">
+          </div>
+          <div class="mb-3">
+            <label for="eSupplier" class="form-label">電力供給者（任意）</label>
+            <input type="text" id="eSupplier" class="form-control" maxlength="100">
+          </div>
+          <div class="mb-3">
+            <label for="eNote" class="form-label">備考</label>
+            <input type="text" id="eNote" class="form-control" maxlength="500">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitActivityEdit()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Factor Modal (create/edit) ===== -->
+<div class="modal fade" id="factorModal" tabindex="-1" aria-labelledby="factorModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="factorModalLabel">排出係数の登録</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <form id="factorForm" novalidate>
+          <input type="hidden" id="eFactorId">
+          <div class="mb-3">
+            <label for="eFactorCategory" class="form-label">カテゴリ <span class="text-danger">*</span></label>
+            <select id="eFactorCategory" class="form-select" required>
+              <option value="fuel">燃料</option>
+              <option value="power">電力</option>
+              <option value="material">材料</option>
+              <option value="transport">輸送</option>
+              <option value="machine">建機</option>
+              <option value="ship">船舶</option>
+              <option value="waste">廃棄物</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="eFactorItem" class="form-label">品目 <span class="text-danger">*</span></label>
+            <input type="text" id="eFactorItem" class="form-control" required maxlength="200">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label for="eFactorUnit" class="form-label">単位 <span class="text-danger">*</span></label>
+              <input type="text" id="eFactorUnit" class="form-control" required maxlength="20">
+            </div>
+            <div class="col-6">
+              <label for="eFactorValue" class="form-label">係数 (kg-CO2/unit) <span class="text-danger">*</span></label>
+              <input type="number" id="eFactorValue" class="form-control" min="0" step="any" required>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="eFactorDate" class="form-label">適用開始日 <span class="text-danger">*</span></label>
+            <input type="date" id="eFactorDate" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label for="eFactorSource" class="form-label">出典 <span class="text-danger">*</span></label>
+            <input type="text" id="eFactorSource" class="form-control" required maxlength="300">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitFactorForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Action Modal ===== -->
+<div class="modal fade" id="actionModal" tabindex="-1" aria-labelledby="actionModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="actionModalLabel">削減アクション</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <form id="actionForm" novalidate>
+          <input type="hidden" id="eActionId">
+          <div class="mb-3">
+            <label for="eActionProject" class="form-label">工事 <span class="text-danger">*</span></label>
+            <select id="eActionProject" class="form-select project-select" required></select>
+          </div>
+          <div class="mb-3">
+            <label for="eActionMonth" class="form-label">対象月 <span class="text-danger">*</span></label>
+            <input type="month" id="eActionMonth" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label for="eActionCategory" class="form-label">カテゴリ <span class="text-danger">*</span></label>
+            <select id="eActionCategory" class="form-select" required>
+              <option value="fuel">燃料</option>
+              <option value="power">電力</option>
+              <option value="material">材料</option>
+              <option value="transport">輸送</option>
+              <option value="machine">建機</option>
+              <option value="ship">船舶</option>
+              <option value="waste">廃棄物</option>
+              <option value="business_travel">出張交通</option>
+              <option value="commuting">通勤</option>
+              <option value="water">水</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="eActionSuggestion" class="form-label">提案内容 <span class="text-danger">*</span></label>
+            <textarea id="eActionSuggestion" class="form-control" rows="2" required maxlength="1000"></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="eActionStatus" class="form-label">状態</label>
+            <select id="eActionStatus" class="form-select">
+              <option value="planned">計画</option>
+              <option value="implemented">実施済み</option>
+              <option value="declined">見送り</option>
+            </select>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label for="eActionEst" class="form-label">想定削減量 (kg-CO2)</label>
+              <input type="number" id="eActionEst" class="form-control" min="0" step="any">
+            </div>
+            <div class="col-6">
+              <label for="eActionActual" class="form-label">実績削減量 (kg-CO2)</label>
+              <input type="number" id="eActionActual" class="form-control" min="0" step="any">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="eActionNote" class="form-label">備考</label>
+            <input type="text" id="eActionNote" class="form-control" maxlength="500">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitActionForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== User Modal ===== -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="userModalLabel">ユーザーの登録</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <form id="userForm" novalidate>
+          <input type="hidden" id="eUserId">
+          <div class="mb-3">
+            <label for="eUsername" class="form-label">ユーザー名 <span class="text-danger">*</span></label>
+            <input type="text" id="eUsername" class="form-control" required maxlength="50" autocomplete="off">
+          </div>
+          <div class="mb-3">
+            <label for="eDisplayName" class="form-label">表示名</label>
+            <input type="text" id="eDisplayName" class="form-control" maxlength="100">
+          </div>
+          <div class="mb-3">
+            <label for="eUserBranch" class="form-label">支店（siteロールで必須）</label>
+            <select id="eUserBranch" class="form-select">
+              <option value="">-- 指定なし --</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="eUserEmail" class="form-label">メールアドレス（通知用）</label>
+            <input type="email" id="eUserEmail" class="form-control" maxlength="200">
+          </div>
+          <div class="mb-3">
+            <label for="eUserRole" class="form-label">ロール</label>
+            <select id="eUserRole" class="form-select">
+              <option value="viewer">閲覧 (Viewer)</option>
+              <option value="site">現場入力 (SiteInput)</option>
+              <option value="reviewer">レビュアー (EnvironmentReviewer)</option>
+              <option value="admin">管理者 (CarbonAdmin)</option>
+              <option value="client">発注者 (Client・閲覧のみ)</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="eUserPassword" class="form-label">パスワード <span class="text-danger" id="pwRequiredMark">*</span></label>
+            <input type="password" id="eUserPassword" class="form-control" minlength="6" autocomplete="new-password"
+                   placeholder="6文字以上">
+            <div class="form-text" id="pwHelp">新規作成時は必須。編集時は空欄で変更しません。</div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitUserForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Feedback Modal ===== -->
+<div class="modal fade" id="feedbackModal" tabindex="-1" aria-labelledby="feedbackModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="feedbackModalLabel">フィードバック登録</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <form id="feedbackForm" novalidate>
+          <input type="hidden" id="eFeedbackId">
+          <div class="mb-3">
+            <label for="eFeedbackProject" class="form-label">工事 <span class="text-danger">*</span></label>
+            <select id="eFeedbackProject" class="form-select project-select" required></select>
+          </div>
+          <div class="mb-3">
+            <label for="eFeedbackMonth" class="form-label">対象月 <span class="text-danger">*</span></label>
+            <input type="month" id="eFeedbackMonth" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label for="eFeedbackCategory" class="form-label">カテゴリ</label>
+            <select id="eFeedbackCategory" class="form-select">
+              <option value="">-- 選択 --</option>
+              <option value="fuel">燃料</option>
+              <option value="power">電力</option>
+              <option value="material">材料</option>
+              <option value="transport">輸送</option>
+              <option value="machine">建機</option>
+              <option value="ship">船舶</option>
+              <option value="waste">廃棄物</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="eFeedbackContent" class="form-label">内容 <span class="text-danger">*</span></label>
+            <textarea id="eFeedbackContent" class="form-control" rows="3" required maxlength="1000"></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="eFeedbackStatus" class="form-label">状態</label>
+            <select id="eFeedbackStatus" class="form-select">
+              <option value="open">未対応</option>
+              <option value="acknowledged">対応中</option>
+              <option value="resolved">解決済み</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitFeedbackForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SBTi Modal ===== -->
+<div class="modal fade" id="sbtiModal" tabindex="-1" aria-labelledby="sbtiModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="sbtiModalLabel">SBTi目標の登録</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <form id="sbtiForm" novalidate>
+          <input type="hidden" id="eSbtiId">
+          <div class="mb-3">
+            <label for="eSbtiScope" class="form-label">Scope</label>
+            <select id="eSbtiScope" class="form-select">
+              <option value="scope1">Scope1 直接排出</option>
+              <option value="scope2">Scope2 エネルギー間接排出</option>
+              <option value="scope3">Scope3 その他間接排出</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="eSbtiName" class="form-label">目標名 <span class="text-danger">*</span></label>
+            <input type="text" id="eSbtiName" class="form-control" required maxlength="200"
+                   placeholder="例: Scope1+2 42%削減（2024→2030）">
+          </div>
+          <div class="mb-3">
+            <label for="eSbtiDesc" class="form-label">説明</label>
+            <textarea id="eSbtiDesc" class="form-control" rows="2" maxlength="500"></textarea>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label for="eSbtiBaseYear" class="form-label">基準年</label>
+              <input type="number" id="eSbtiBaseYear" class="form-control" min="2000" max="2100" required>
+            </div>
+            <div class="col-6">
+              <label for="eSbtiTargetYear" class="form-label">目標年</label>
+              <input type="number" id="eSbtiTargetYear" class="form-control" min="2000" max="2100" required>
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label for="eSbtiBaseKg" class="form-label">基準排出量 (t-CO2)</label>
+              <input type="number" id="eSbtiBaseKg" class="form-control" min="0" step="any" required>
+            </div>
+            <div class="col-6">
+              <label for="eSbtiReduction" class="form-label">削減率 (%)</label>
+              <input type="number" id="eSbtiReduction" class="form-control" min="0" max="100" step="any" required>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitSbtiForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Activity Comment Modal ===== -->
+<div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="commentModalLabel">コメント</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="commentActivityId">
+        <div id="commentList" class="mb-3"></div>
+        <hr>
+        <div class="small fw-bold mb-2">変更履歴（CO2影響あり）</div>
+        <div id="activityHistoryList" class="mb-3"></div>
+        <div class="d-flex gap-2" data-role-min="site">
+          <input type="text" id="commentInput" class="form-control" placeholder="コメントを入力（例: 数量の根拠は伝票No.123）" maxlength="500">
+          <button class="btn btn-primary" onclick="addComment()" type="button">
+            <i class="bi bi-send me-1" aria-hidden="true"></i>送信
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Project Assignment Modal ===== -->
+<div class="modal fade" id="assignModal" tabindex="-1" aria-labelledby="assignModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="assignModalLabel">工事アクセス割当</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="assignUserId">
+        <div class="small text-muted mb-2">発注者(client)ユーザーに閲覧を許可する工事を選択します。</div>
+        <div id="assignProjectList" class="d-flex flex-column gap-1"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitAssignments()"><i class="bi bi-save me-1" aria-hidden="true"></i>保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Security Modal (2FA) ===== -->
+<div class="modal fade" id="securityModal" tabindex="-1" aria-labelledby="securityModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="securityModalLabel"><i class="bi bi-shield-lock me-2" aria-hidden="true"></i>セキュリティ設定</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <div id="securityStatus" class="small mb-3"></div>
+        <div id="totpSetupArea" class="d-none">
+          <p class="small text-muted">認証アプリ（Google Authenticator 等）で以下のシークレットを登録してください。</p>
+          <div class="input-group mb-2">
+            <input type="text" id="totpSecret" class="form-control form-control-sm" readonly>
+            <button class="btn btn-sm btn-outline-secondary" onclick="copyTotpSecret()" type="button">コピー</button>
+          </div>
+          <div class="d-flex gap-2 mb-2">
+            <input type="text" id="totpCode" class="form-control form-control-sm" inputmode="numeric" maxlength="6" placeholder="認証コード6桁">
+            <button class="btn btn-sm btn-primary" onclick="enableTwofa()" type="button">有効化</button>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-danger" onclick="disableTwofa()" type="button">無効化</button>
+          </div>
+        </div>
+        <div id="oidcStatus" class="small text-muted mt-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Credit Modal ===== -->
+<div class="modal fade" id="creditModal" tabindex="-1" aria-labelledby="creditModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="creditModalLabel">クレジット登録</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+      </div>
+      <div class="modal-body">
+        <form id="creditForm" novalidate>
+          <div class="mb-3">
+            <label for="eCreditType" class="form-label">種別</label>
+            <select id="eCreditType" class="form-select">
+              <option value="j_credit">J-クレジット</option>
+              <option value="certificate">再エネ証書</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="eCreditName" class="form-label">名称 <span class="text-danger">*</span></label>
+            <input type="text" id="eCreditName" class="form-control" required maxlength="200">
+          </div>
+          <div class="mb-3">
+            <label for="eCreditSerial" class="form-label">シリアル番号</label>
+            <input type="text" id="eCreditSerial" class="form-control" maxlength="100">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label for="eCreditQty" class="form-label">数量 (t-CO2) <span class="text-danger">*</span></label>
+              <input type="number" id="eCreditQty" class="form-control" min="0" step="any" required>
+            </div>
+            <div class="col-6">
+              <label for="eCreditDate" class="form-label">購入日</label>
+              <input type="date" id="eCreditDate" class="form-control">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="eCreditNote" class="form-label">備考</label>
+            <input type="text" id="eCreditNote" class="form-control" maxlength="500">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <button type="button" class="btn btn-primary" onclick="submitCreditForm()"><i class="bi bi-save me-1" aria-hidden="true"></i>登録</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Login Modal ===== -->
+<div class="modal fade" id="loginModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="loginModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="loginModalLabel"><i class="bi bi-shield-lock me-2" aria-hidden="true"></i>ログイン</h5>
+      </div>
+      <div class="modal-body">
+        <form id="loginForm" novalidate>
+          <div class="mb-3">
+            <label for="loginUsername" class="form-label">ユーザー名</label>
+            <input type="text" id="loginUsername" class="form-control" autocomplete="username" required>
+          </div>
+          <div class="mb-3">
+            <label for="loginPassword" class="form-label">パスワード</label>
+            <input type="password" id="loginPassword" class="form-control" autocomplete="current-password" required>
+          </div>
+          <div id="loginError" class="text-danger small mb-2 d-none"></div>
+          <div id="twofaField" class="mb-3 d-none">
+            <label for="login2faCode" class="form-label">認証コード（6桁）</label>
+            <input type="text" id="login2faCode" class="form-control" inputmode="numeric" maxlength="6" placeholder="123456">
+          </div>
+          <button type="button" class="btn btn-primary w-100" onclick="submitLogin()">
+            <i class="bi bi-box-arrow-in-right me-1" aria-hidden="true"></i>ログイン
+          </button>
+          <button type="button" class="btn btn-outline-dark w-100 mt-2" onclick="oidcLogin()">
+            <i class="bi bi-person-badge me-1" aria-hidden="true"></i>SSOでログイン
+          </button>
+        </form>
+        <p class="text-muted small mt-3 mb-0">開発用デフォルト: admin/admin123, reviewer/reviewer123, site/site123, viewer/viewer123</p>
       </div>
     </div>
   </div>
@@ -472,20 +1497,14 @@
 </div>
 
 <!-- ===== Toast container ===== -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3"
-     id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
-<!-- Bootstrap 5 JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmrIi9GsyAlFMFuCfP/VCE2xpLm"
         crossorigin="anonymous"></script>
-
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"
         integrity="sha384-7RV5jdqBenBkh+YYBoPFVtLMx7WXCO1zNvuVhUCOF7ItM5vHSmPcfynASH4r7xt"
         crossorigin="anonymous"></script>
-
-<!-- Application JS -->
 <script src="/static/js/app.js"></script>
 </body>
 </html>

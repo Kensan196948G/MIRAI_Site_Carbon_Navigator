@@ -1,13 +1,43 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+import logging
 import os
+import threading
+import time
+from contextlib import asynccontextmanager
 
-from .database import create_tables
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+
 from . import models  # noqa: F401 — registers ORM models with Base.metadata
-from .routers import projects, factors, activities, emissions, reports
+from .database import create_tables
+from .routers import (
+    actions,
+    activities,
+    admin,
+    assistant,
+    audit,
+    auth,
+    branches,
+    closes,
+    credits,
+    demo,
+    emissions,
+    export,
+    factors,
+    feedbacks,
+    notifications,
+    projects,
+    reports,
+    sbti,
+    telematics,
+    units,
+    users,
+)
+from .version import __version__
+
+logger = logging.getLogger("mirai")
 
 
 @asynccontextmanager
@@ -19,25 +49,147 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="MIRAI Site Carbon Navigator",
     description="建設現場CO2排出量算定システム",
-    version="1.0.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
-# CORS middleware
+# CORS middleware — explicit origins only (no wildcard with credentials).
+allowed_origins = [
+    o.strip()
+    for o in os.getenv(
+        "MIRAI_CORS_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000,https://carbon.mirai-dx-platform.com",
+    ).split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# ---------------------------------------------------------------------------
+# Middleware: structured request logging
+# ---------------------------------------------------------------------------
+
+@app.middleware("http")
+async def request_logging(request: Request, call_next):
+    start = time.monotonic()
+    response = await call_next(request)
+    duration_ms = (time.monotonic() - start) * 1000
+    logger.info(
+        "request",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+            "duration_ms": round(duration_ms, 2),
+            "ip": request.client.host if request.client else "-",
+        },
+    )
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Middleware: security headers
+# ---------------------------------------------------------------------------
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "font-src 'self' https://cdn.jsdelivr.net"
+    )
+    if os.getenv("MIRAI_ENABLE_HSTS", "0") == "1":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Middleware: simple in-memory rate limiting (per IP, /api paths)
+# ---------------------------------------------------------------------------
+
+_rate_lock = threading.Lock()
+_rate_hits: dict[str, list[float]] = {}
+
+
+@app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    if not request.url.path.startswith("/api/"):
+        return await call_next(request)
+    limit = int(os.getenv("MIRAI_RATE_LIMIT_PER_MIN", "300"))
+    ip = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    with _rate_lock:
+        hits = _rate_hits.setdefault(ip, [])
+        hits = [t for t in hits if now - t < 60.0]
+        _rate_hits[ip] = hits
+        if len(hits) >= limit:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Rate limit exceeded. Please retry later."},
+            )
+        hits.append(now)
+    return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
+# Health endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/health", include_in_schema=False)
+def health():
+    return {"status": "ok", "version": __version__, "time": time.time()}
+
+
+@app.get("/api/health/ready", include_in_schema=False)
+def ready():
+    from .database import SessionLocal
+
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+        return {"status": "ready", "db": "ok", "version": __version__}
+    except Exception as exc:
+        logger.error("readiness check failed: %s", exc)
+        return JSONResponse(status_code=503, content={"status": "not_ready", "db": "error"})
+
+
 # Include routers
+app.include_router(auth.router)
+app.include_router(users.router)
 app.include_router(projects.router)
 app.include_router(factors.router)
 app.include_router(activities.router)
 app.include_router(emissions.router)
 app.include_router(reports.router)
+app.include_router(actions.router)
+app.include_router(audit.router)
+app.include_router(notifications.router)
+app.include_router(feedbacks.router)
+app.include_router(sbti.router)
+app.include_router(demo.router)
+app.include_router(closes.router)
+app.include_router(units.router)
+app.include_router(branches.router)
+app.include_router(telematics.router)
+app.include_router(export.router)
+app.include_router(credits.router)
+app.include_router(assistant.router)
+app.include_router(admin.router)
 
 
 # Serve static frontend files

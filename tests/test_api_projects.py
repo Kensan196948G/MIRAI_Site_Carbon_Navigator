@@ -1,7 +1,6 @@
 """
 Integration tests for the Projects API (/api/projects).
 """
-import pytest
 from starlette.testclient import TestClient
 
 from tests.conftest import make_project
