@@ -80,7 +80,11 @@ YYYY-MM-DD HH:MM 項目名 / 担当 / 結果（OK・NG・保留） / 備考 / �
 2026-08-12 21:05 Tunnelトークン再ローテーション / セキュリティ / OK（新トークン発行・旧トークンを ~/.mirai_carbon_tunnel_token.old へ退避、systemd引数からトークン露出を排除、公開URL 200継続）
 2026-08-12 21:06 carbon_admin初回パスワード変更 / 管理者 / OK（24文字ランダムへ更新、旧パスワード401確認、.cred 0600に保存）
 2026-08-12 21:08 通知設定スクリプト・手順整備 / 開発者 / OK（compose環境変数追加・configure_notifications.sh・NOTIFICATIONS_SETUP.md。実設定は資格情報提供後）
-2026-08-12 21:10 排出係数一次情報突合 / 環境担当 / 実施中→反映（燃料・電力・輸送・材料を一次情報と突合、EMISSION_FACTORS_RECONCILIATION.md 作成、reconcile スクリプトで適用予定）
+2026-08-12 21:10 排出係数一次情報突合 / 環境担当 / 完了（燃料・電力・輸送・材料を一次情報と突合、EMISSION_FACTORS_RECONCILIATION.md 作成）
+2026-08-12 21:15 PR #10 マージ・本番デプロイ / 開発者 / OK（CI 3ジョブ成功、deploy.sh で app 再作成、smoke PASS 2.0.0）
+2026-08-12 21:16 排出係数反映 / 環境担当 / OK（2026-08-12適用開始の新バージョン8件を確認、既存行は削除せず）
+2026-08-12 21:17 通知経路単体テスト / QA / OK（tests/test_notifications.py 4件追加、pytest 182件・ruff 0 error）
+2026-08-12 21:20 PR #11 マージ / 開発者 / OK（CI成功）
 ```
 
 ### 代替管理者について
