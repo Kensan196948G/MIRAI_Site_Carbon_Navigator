@@ -69,6 +69,23 @@ YYYY-MM-DD HH:MM 項目名 / 担当 / 結果（OK・NG・保留） / 備考 / �
 2026-08-12 20:xx SMTP/Teams通知設定 / 運用管理者 / 未設定（継続課題）
 ```
 
+## 2026-08-12 夜間対応（ユーザー指示による復旧・本番化）
+
+```text
+2026-08-12 20:45 Tunnel復旧 / 運用管理者 / OK（mirai-site-carbon-navigator トンネルを user systemd サービスとして再起動、公開URL 200）
+2026-08-12 20:46 本番デプロイ / 運用管理者 / OK（PR #5 マージ後 deploy.sh、health 20s・smoke PASS・version 2.0.0）
+2026-08-12 20:47 公開URL確認 / 運用管理者 / OK（/api/health/ready 200、CSS/JS/vendor 200、公開経由ログイン・ダッシュボード確認）
+2026-08-12 20:49 既定アカウント無効化 / 管理者 / OK（admin/reviewer/site/viewer を is_active=false、代替管理者 carbon_admin を作成・動作確認）
+2026-08-12 20:50 通知試験 / 運用管理者 / NG→保留（SMTP/Teams 未設定。M365/Teams 資格情報の提供待ち）
+```
+
+### 代替管理者について
+
+- ユーザー名: `carbon_admin`（ロール: admin / 有効）
+- 初回パスワードはホスト内 `/home/kensan/.mirai_carbon_admin.cred`（パーミッション 0600）に保存
+- 初回ログイン後にパスワード変更を推奨（管理者権限で変更可能）
+- 既定アカウントは無効化（削除せず）のため、必要なら `--delete` で物理削除可能
+
 ### 次回点検（追加）
 
 | 項目 | 周期 | 担当 | 証跡 |
