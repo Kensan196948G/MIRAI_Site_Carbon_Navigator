@@ -12,6 +12,13 @@ if [ -f .env ]; then
   set +a
 fi
 
+# Local production smoke uses the rotated admin credential when present.
+if [ -z "${SMOKE_PASSWORD:-}" ] && [ -f /home/kensan/.mirai_carbon_admin.cred ]; then
+  SMOKE_USER="${SMOKE_USER:-carbon_admin}"
+  SMOKE_PASSWORD="$(sed -n 's/^password=//p' /home/kensan/.mirai_carbon_admin.cred)"
+fi
+export SMOKE_USER SMOKE_PASSWORD
+
 echo "[deploy] commit: $(git rev-parse HEAD)"
 docker compose up -d --build db app
 
