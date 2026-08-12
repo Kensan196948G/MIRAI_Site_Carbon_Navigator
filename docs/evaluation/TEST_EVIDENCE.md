@@ -68,6 +68,14 @@
 | pytest / ruff 再実行 | 178 passed / ruff 0 error（残課題対応後の master 作業ツリー） |
 | 実SMTP/Teams通知試験 | 未実施（M365アプリパスワード・Teams Webhook URL の提供待ち） |
 
+### 2026-08-12 外部依存対応（追記）
+
+- SMTP 到達性: `smtp.office365.com:587` への疎通 OK（認証・送信は資格情報提供後に実施）
+- 電気係数: 令和6年度実績の確定値（環境省・経産省 2026-06-04更新）を取得し、電力係数を更新
+- 材料係数: 生コン 128.55kg-CO2/t（農水省）、アスファルト 58.7kg-CO2/t（国交省）へ更新
+- PoC: 現場未確定時の代替案（既存デモ工事2件）とアカウント命名方針を POC_PLAN へ追記
+- pytest 182 passed / ruff 0 error（上記更新後の作業ツリー）
+
 ## 2026-08-12 通知経路の単体テスト（追記）
 
 - `tests/test_notifications.py` を追加（SMTP 送信成功・未設定時 false、Teams webhook 送信成功・未設定時 false）

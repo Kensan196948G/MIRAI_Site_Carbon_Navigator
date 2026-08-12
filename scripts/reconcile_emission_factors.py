@@ -58,12 +58,39 @@ def reconcile(apply: bool) -> None:
 
         if existing:
             if existing.factor_value != f["factor_value"]:
-                print(
-                    f"CONFLICT {category}/{item_name} "
-                    f"({effective_from}, supplier={supplier}): "
-                    f"db={existing.factor_value} seed={f['factor_value']}"
-                )
-                conflicts += 1
+                if effective_from == datetime.date(2026, 8, 12) and apply:
+                    planned_updates += 1
+                    old_value = existing.factor_value
+                    print(
+                        f"UPDATE {category}/{item_name} "
+                        f"({effective_from}, supplier={supplier}): "
+                        f"value {old_value} -> {f['factor_value']}"
+                    )
+                    existing.factor_value = f["factor_value"]
+                    existing.source = f["source"]
+                    existing.updated_at = utcnow()
+                    existing.updated_by = actor
+                    db.add(
+                        models.AuditLog(
+                            log_id=str(uuid.uuid4()),
+                            actor=actor,
+                            action="update",
+                            resource_type="factor",
+                            resource_id=existing.factor_id,
+                            detail=(
+                                f"value {old_value} -> "
+                                f"{f['factor_value']} (R6確定値反映)"
+                            ),
+                            created_at=utcnow(),
+                        )
+                    )
+                else:
+                    print(
+                        f"CONFLICT {category}/{item_name} "
+                        f"({effective_from}, supplier={supplier}): "
+                        f"db={existing.factor_value} seed={f['factor_value']}"
+                    )
+                    conflicts += 1
                 continue
             if existing.source != f["source"]:
                 planned_updates += 1
