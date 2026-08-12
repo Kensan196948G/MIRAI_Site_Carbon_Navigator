@@ -229,6 +229,41 @@ class TestProjectIsolation:
             },
         ).status_code == 403
 
+    def test_site_cannot_submit_other_branch_activity(self, app_env):
+        admin = _login(app_env, "admin")
+        site = _login(app_env, "site_tokyo")
+        projects = _seed_projects_and_activity(app_env, admin)
+        resp = site.put(
+            f"/api/activities/{projects['osaka_activity']['activity_id']}/approval",
+            json={"action": "submit"},
+        )
+        assert resp.status_code == 403
+
+    def test_site_excel_import_forces_own_branch(self, app_env):
+        import io
+
+        from openpyxl import Workbook
+
+        admin = _login(app_env, "admin")
+        site = _login(app_env, "site_tokyo")
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["name", "branch", "work_type", "start_date", "end_date", "description", "close_day"])
+        ws.append(["東京持ち込み工事", "大阪支店", "土木工事", "2026-01-01", "2026-12-31", None, None])
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        resp = site.post(
+            "/api/projects/import",
+            files={"file": ("projects.xlsx", buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["imported"] == 1
+        projects = site.get("/api/projects").json()
+        imported = [p for p in projects if p["name"] == "東京持ち込み工事"]
+        assert len(imported) == 1
+        assert imported[0]["branch"] == "東京支店"
+
     def test_client_sees_only_assigned_projects_and_no_corporate_data(self, app_env):
         admin = _login(app_env, "admin")
         client = _login(app_env, "client1")

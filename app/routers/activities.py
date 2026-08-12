@@ -156,6 +156,10 @@ def approval_action(
     activity = crud.get_activity(db, activity_id)
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
+    try:
+        crud.ensure_project_mutation_allowed(db, user, activity.project_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
     if crud.is_month_closed(db, activity.project_id, activity.target_month):
         raise HTTPException(status_code=400, detail="対象月は締め済みです")
     role_needed = {
