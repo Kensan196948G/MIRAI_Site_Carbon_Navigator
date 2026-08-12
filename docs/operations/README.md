@@ -24,6 +24,9 @@ MIRAI Site Carbon Navigator の本番運用に必要な文書です。
 | 監視 | `scripts/monitor.sh` → `logs/monitor.log`（cron 5分毎） |
 | デプロイ | `scripts/deploy.sh`（main確定commitから実施） |
 
+> スモークテスト（`scripts/smoke.sh`）は `SMOKE_PASSWORD` 環境変数が必須です。
+> 既定開発パスワードは本番では使えません。
+
 ## 定期ジョブ（cron）
 
 | ジョブ | 周期 | コマンド |

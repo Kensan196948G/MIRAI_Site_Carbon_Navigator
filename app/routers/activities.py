@@ -5,7 +5,7 @@ from fastapi.responses import Response
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
-from .. import crud, schemas
+from .. import crud, models, schemas
 from ..database import get_db
 from ..security import get_current_user, require_at_least
 from ..services.reporter import generate_activity_import_template
@@ -22,8 +22,10 @@ def create_activity(
     project = crud.get_project(db, activity.project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    if user.role == "site" and user.branch and project.branch != user.branch:
-        raise HTTPException(status_code=403, detail="他支店の工事へは登録できません")
+    try:
+        crud.ensure_project_mutation_allowed(db, user, activity.project_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
     if crud.is_month_closed(db, activity.project_id, activity.target_month):
         raise HTTPException(status_code=400, detail="対象月は締め済みのため登録できません")
     try:
@@ -41,7 +43,15 @@ def list_activities(
 ):
     if project_id and not crud.has_project_access(db, user, project_id):
         raise HTTPException(status_code=403, detail="Project access denied")
-    return crud.list_activity_data(db, project_id=project_id, target_month=target_month)
+    if project_id:
+        return crud.list_activity_data(db, project_id=project_id, target_month=target_month)
+    # Unfiltered listing must stay within the user's visible projects
+    # (site: own branch, client: assigned projects only).
+    return crud.list_activity_data(
+        db,
+        target_month=target_month,
+        project_ids=crud.project_ids_for_user(db, user),
+    )
 
 
 @router.get("/template")
@@ -101,8 +111,10 @@ async def import_activities(
             errors.append(f"Row {idx}: {e}")
             skipped += 1
             continue
-        if not crud.get_project(db, schema.project_id):
-            errors.append(f"Row {idx}: Project {schema.project_id} not found")
+        try:
+            crud.ensure_project_mutation_allowed(db, user, schema.project_id)
+        except PermissionError as e:
+            errors.append(f"Row {idx}: {e}")
             skipped += 1
             continue
         if crud.is_month_closed(db, schema.project_id, schema.target_month):
@@ -177,6 +189,10 @@ def update_activity(
     existing = crud.get_activity(db, activity_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Activity not found")
+    try:
+        crud.ensure_project_mutation_allowed(db, user, existing.project_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
     if crud.is_month_closed(db, existing.project_id, existing.target_month):
         raise HTTPException(status_code=400, detail="対象月は締め済みのため更新できません")
     activity = crud.update_activity(db, activity_id, body, user.username)
@@ -192,6 +208,10 @@ def delete_activity(
     existing = crud.get_activity(db, activity_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Activity not found")
+    try:
+        crud.ensure_project_mutation_allowed(db, user, existing.project_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
     if crud.is_month_closed(db, existing.project_id, existing.target_month):
         raise HTTPException(status_code=400, detail="対象月は締め済みのため削除できません")
     if not crud.delete_activity(db, activity_id, user.username):
@@ -207,9 +227,10 @@ def bulk_create_activities(
     results = []
     errors = []
     for i, activity in enumerate(activities):
-        project = crud.get_project(db, activity.project_id)
-        if not project:
-            errors.append(f"Row {i}: Project {activity.project_id} not found")
+        try:
+            crud.ensure_project_mutation_allowed(db, user, activity.project_id)
+        except PermissionError as e:
+            errors.append(f"Row {i}: {e}")
             continue
         if crud.is_month_closed(db, activity.project_id, activity.target_month):
             errors.append(f"Row {i}: 対象月 {activity.target_month} は締め済み")
@@ -230,8 +251,10 @@ def copy_previous(
     db: Session = Depends(get_db),
     user=Depends(require_at_least("site")),
 ):
-    if not crud.get_project(db, body.project_id):
-        raise HTTPException(status_code=404, detail="Project not found")
+    try:
+        crud.ensure_project_mutation_allowed(db, user, body.project_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
     if crud.is_month_closed(db, body.project_id, body.to_month):
         raise HTTPException(status_code=400, detail="コピー先の対象月は締め済みです")
     return crud.copy_previous_month(
@@ -248,6 +271,8 @@ def list_comments(
     activity = crud.get_activity(db, activity_id)
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
+    if not crud.has_project_access(db, user, activity.project_id):
+        raise HTTPException(status_code=403, detail="Project access denied")
     return crud.list_activity_comments(db, activity_id)
 
 
@@ -260,6 +285,8 @@ def list_activity_history(
     activity = crud.get_activity(db, activity_id)
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
+    if not crud.has_project_access(db, user, activity.project_id):
+        raise HTTPException(status_code=403, detail="Project access denied")
     return crud.list_activity_changes(db, activity_id)
 
 
@@ -273,6 +300,10 @@ def add_comment(
     activity = crud.get_activity(db, activity_id)
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
+    try:
+        crud.ensure_project_mutation_allowed(db, user, activity.project_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
     return crud.add_activity_comment(db, activity_id, body.content.strip(), user.username)
 
 
@@ -283,5 +314,18 @@ def delete_comment(
     db: Session = Depends(get_db),
     user=Depends(require_at_least("reviewer")),
 ):
+    comment = (
+        db.query(models.ActivityComment)
+        .filter(models.ActivityComment.comment_id == comment_id)
+        .first()
+    )
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    activity = crud.get_activity(db, comment.activity_id)
+    if activity:
+        try:
+            crud.ensure_project_mutation_allowed(db, user, activity.project_id)
+        except PermissionError as e:
+            raise HTTPException(status_code=403, detail=str(e)) from e
     if not crud.delete_activity_comment(db, comment_id, user.username):
         raise HTTPException(status_code=404, detail="Comment not found")

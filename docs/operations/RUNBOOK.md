@@ -37,6 +37,13 @@
 2. アクセスログ・監査ログで異常操作を確認
 3. 影響範囲を記録し、必要ならアカウント無効化
 
+### F. 公開 URL が 530 / Cloudflare error 1033（Tunnel 断）
+1. `logs/monitor.log` で FAIL 開始時刻を確認
+2. `docker compose ps` で app/db が healthy ならアプリ側は正常（ローカル 8020 で確認）
+3. Cloudflare ダッシュボードで Tunnel の状態・トンネルトークンを確認し、必要なら再作成・ローテーション
+4. 復旧後 `scripts/monitor.sh` の OK と `curl https://carbon.mirai-dx-platform.com/api/health/ready` で確認
+5. 原因・復旧内容を運用台帳と GitHub Issue に記録
+
 ## 連絡先
 
 - 一次対応: 本番運用管理者

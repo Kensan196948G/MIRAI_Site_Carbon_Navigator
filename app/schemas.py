@@ -199,7 +199,7 @@ class ReductionSuggestion(BaseModel):
 
 class UserCreate(BaseModel):
     username: str
-    password: str = Field(min_length=6)
+    password: str = Field(min_length=10)
     display_name: str | None = None
     role: str = "viewer"
     branch: str | None = None
@@ -209,7 +209,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     display_name: str | None = None
     role: str | None = None
-    password: str | None = Field(default=None, min_length=6)
+    password: str | None = Field(default=None, min_length=10)
     is_active: bool | None = None
     branch: str | None = None
     email: str | None = None
@@ -577,6 +577,10 @@ class LoginResponse(TokenResponse):
 
 class TotpLoginRequest(BaseModel):
     temp_token: str
+    code: str
+
+
+class OidcExchangeRequest(BaseModel):
     code: str
 
 

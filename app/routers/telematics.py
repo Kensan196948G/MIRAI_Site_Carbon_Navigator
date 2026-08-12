@@ -18,6 +18,10 @@ def import_telematics(
     project = crud.get_project(db, body.project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    try:
+        crud.ensure_project_mutation_allowed(db, user, body.project_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
     if crud.is_month_closed(db, body.project_id, body.target_month):
         raise HTTPException(status_code=400, detail="対象月は締め済みです")
     try:

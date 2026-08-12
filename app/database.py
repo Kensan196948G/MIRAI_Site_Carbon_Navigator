@@ -21,6 +21,30 @@ Base = declarative_base()
 def create_tables():
     Base.metadata.create_all(bind=engine)
     _ensure_columns()
+    _create_indexes()
+
+
+def _create_indexes():
+    """Create the indexes used by the most common query paths.
+
+    Uses IF NOT EXISTS so this is safe on both SQLite and PostgreSQL and
+    remains idempotent across app restarts.
+    """
+    statements = [
+        "CREATE INDEX IF NOT EXISTS ix_activity_data_project_month ON activity_data (project_id, target_month)",
+        "CREATE INDEX IF NOT EXISTS ix_activity_data_project ON activity_data (project_id)",
+        "CREATE INDEX IF NOT EXISTS ix_activity_data_month ON activity_data (target_month)",
+        "CREATE INDEX IF NOT EXISTS ix_activity_data_approved ON activity_data (approved)",
+        "CREATE INDEX IF NOT EXISTS ix_emission_results_activity ON emission_results (activity_id)",
+        "CREATE INDEX IF NOT EXISTS ix_audit_logs_created ON audit_logs (created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_notifications_recipient ON notifications (recipient_role, recipient_username)",
+        "CREATE INDEX IF NOT EXISTS ix_user_project_access_user ON user_project_access (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_emission_factors_lookup ON emission_factors (category, item_name, unit)",
+        "CREATE INDEX IF NOT EXISTS ix_monthly_closes_lookup ON monthly_closes (project_id, target_month)",
+    ]
+    with engine.begin() as conn:
+        for statement in statements:
+            conn.execute(text(statement))
 
 
 def _ensure_columns():

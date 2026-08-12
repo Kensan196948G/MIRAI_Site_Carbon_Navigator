@@ -103,12 +103,44 @@ def delete_project(db: Session, project_id: str, actor: str) -> bool:
     project = get_project(db, project_id)
     if not project:
         return False
+    activity_ids = [
+        row[0]
+        for row in db.query(models.ActivityData.activity_id)
+        .filter(models.ActivityData.project_id == project_id)
+        .all()
+    ]
+    if activity_ids:
+        db.query(models.EmissionResult).filter(
+            models.EmissionResult.activity_id.in_(activity_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.ActivityChangeLog).filter(
+            models.ActivityChangeLog.activity_id.in_(activity_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.ActivityComment).filter(
+            models.ActivityComment.activity_id.in_(activity_ids)
+        ).delete(synchronize_session=False)
     db.query(models.ReductionAction).filter(
         models.ReductionAction.project_id == project_id
     ).delete()
     db.query(models.SiteFeedback).filter(
         models.SiteFeedback.project_id == project_id
     ).delete()
+    db.query(models.MonthlyClose).filter(
+        models.MonthlyClose.project_id == project_id
+    ).delete()
+    db.query(models.UserProjectAccess).filter(
+        models.UserProjectAccess.project_id == project_id
+    ).delete()
+    for credit in (
+        db.query(models.OffsetCredit)
+        .filter(models.OffsetCredit.allocated_project_id == project_id)
+        .all()
+    ):
+        credit.allocated_project_id = None
+        credit.allocated_at = None
+        credit.allocated_tco2 = 0.0
+        credit.status = "available"
+        credit.note = (credit.note or "") + f"；工事削除により充当解除（{actor}）"
     db.query(models.ActivityData).filter(
         models.ActivityData.project_id == project_id
     ).delete()
@@ -328,10 +360,13 @@ def list_activity_data(
     project_id: str | None = None,
     target_month: str | None = None,
     approved: bool | None = None,
+    project_ids: list[str] | None = None,
 ):
     query = db.query(models.ActivityData)
     if project_id:
         query = query.filter(models.ActivityData.project_id == project_id)
+    if project_ids is not None:
+        query = query.filter(models.ActivityData.project_id.in_(project_ids))
     if target_month:
         query = query.filter(models.ActivityData.target_month == target_month)
     if approved is not None:
@@ -392,6 +427,8 @@ def update_activity(
     activity.approved = False
     activity.approved_by = None
     activity.approved_at = None
+    # Approval workflow restarts from the draft stage after any edit.
+    activity.approval_status = "draft"
     db.commit()
     db.refresh(activity)
     add_audit_log(db, actor, "update", "activity", activity_id)
@@ -477,6 +514,7 @@ def approve_activity(
     activity.approved = approved
     activity.approved_by = actor if approved else None
     activity.approved_at = utcnow() if approved else None
+    activity.approval_status = "env_approved" if approved else "draft"
     activity.updated_at = utcnow()
     activity.updated_by = actor
     db.commit()
@@ -511,7 +549,7 @@ def transition_approval(
         "withdraw": {"site_submitted"},
         "approve_branch": {"site_submitted"},
         "reject": {"site_submitted", "branch_approved"},
-        "approve_env": {"branch_approved", "site_submitted"},
+        "approve_env": {"branch_approved"},
     }
     if action not in allowed:
         raise ValueError("Invalid approval action")
@@ -600,6 +638,7 @@ def get_results_by_project(
     db: Session,
     project_id: str | None = None,
     target_month: str | None = None,
+    project_ids: list[str] | None = None,
 ):
     query = db.query(models.EmissionResult).join(
         models.ActivityData,
@@ -607,13 +646,18 @@ def get_results_by_project(
     )
     if project_id:
         query = query.filter(models.ActivityData.project_id == project_id)
+    if project_ids is not None:
+        query = query.filter(models.ActivityData.project_id.in_(project_ids))
     if target_month:
         query = query.filter(models.ActivityData.target_month == target_month)
     return query.order_by(models.ActivityData.category, models.ActivityData.item_name).all()
 
 
 def get_monthly_trend(
-    db: Session, project_id: str | None = None, category: str | None = None
+    db: Session,
+    project_id: str | None = None,
+    category: str | None = None,
+    project_ids: list[str] | None = None,
 ) -> list[dict]:
     query = db.query(models.EmissionResult, models.ActivityData).join(
         models.ActivityData,
@@ -621,6 +665,8 @@ def get_monthly_trend(
     )
     if project_id:
         query = query.filter(models.ActivityData.project_id == project_id)
+    if project_ids is not None:
+        query = query.filter(models.ActivityData.project_id.in_(project_ids))
     if category:
         query = query.filter(models.ActivityData.category == category)
     rows = query.all()
@@ -643,11 +689,16 @@ def get_monthly_trend(
 
 
 def find_missing_factors(
-    db: Session, project_id: str | None = None, target_month: str | None = None
+    db: Session,
+    project_id: str | None = None,
+    target_month: str | None = None,
+    project_ids: list[str] | None = None,
 ) -> list[models.ActivityData]:
     query = db.query(models.ActivityData).filter(models.ActivityData.approved == True)  # noqa: E712
     if project_id:
         query = query.filter(models.ActivityData.project_id == project_id)
+    if project_ids is not None:
+        query = query.filter(models.ActivityData.project_id.in_(project_ids))
     if target_month:
         query = query.filter(models.ActivityData.target_month == target_month)
     missing = []
@@ -1238,6 +1289,24 @@ def list_projects_for_user(db: Session, user: models.User) -> list[models.Projec
         allowed = set(accessible_project_ids(db, user))
         projects = [p for p in projects if p.project_id in allowed]
     return projects
+
+
+def project_ids_for_user(db: Session, user: models.User) -> list[str]:
+    """Project IDs visible to the user (client: assigned, site: own branch)."""
+    return [p.project_id for p in list_projects_for_user(db, user)]
+
+
+def ensure_project_mutation_allowed(
+    db: Session, user: models.User, project_id: str
+) -> None:
+    """Raise PermissionError when the user may not mutate a project's data."""
+    project = get_project(db, project_id)
+    if not project:
+        raise PermissionError("Project not found")
+    if user.role == "client":
+        raise PermissionError("発注者は書き込みできません")
+    if user.role == "site" and user.branch and project.branch != user.branch:
+        raise PermissionError("他支店の工事は操作できません")
 
 
 # ---------------------------------------------------------------------------

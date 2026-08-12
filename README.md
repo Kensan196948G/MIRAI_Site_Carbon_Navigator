@@ -53,7 +53,7 @@ frontend/
 └── static/
     ├── css/style.css
     └── js/app.js
-tests/                   # pytest (156件)
+tests/                   # pytest (176件)
 ```
 
 ## 🚀 クイックスタート
@@ -61,6 +61,7 @@ tests/                   # pytest (156件)
 ### ローカル起動
 
 ```bash
+cp .env.example .env   # 開発時は MIRAI_ENV=development に変更
 pip install -r requirements.txt
 python seed_data.py
 uvicorn app.main:app --reload --port 8000
@@ -72,6 +73,7 @@ API ドキュメントは `http://localhost:8000/docs` で確認できます。
 ## 🌐 本番環境
 
 - URL: https://carbon.mirai-dx-platform.com
+- ステータス: ⚠️ 2026-08-12 時点で Cloudflare Tunnel 障害により 530 応答（復旧作業中）
 - 構成: FastAPI（Docker）+ PostgreSQL 16 + Cloudflare Tunnel（mirai-dx-platform.com）
 - バックアップ: `scripts/backup.sh`（毎日02:00、14世代保持）
 - 監視: `scripts/monitor.sh`（5分毎、`logs/monitor.log`）
@@ -80,9 +82,16 @@ API ドキュメントは `http://localhost:8000/docs` で確認できます。
 ### Docker 起動
 
 ```bash
+cp .env.example .env   # 本番: MIRAI_SECRET_KEY / MIRAI_INITIAL_ADMIN_PASSWORD 等を必ず設定
 docker-compose up --build
 # → http://localhost:8000
 ```
+
+> コンテナは本番モード（`MIRAI_ENV=production`）で起動します。この場合
+> `MIRAI_SECRET_KEY` が未設定・プレースホルダーだと起動を拒否し、
+> 既定開発アカウントは作成されません。初回起動時は
+> `MIRAI_INITIAL_ADMIN_PASSWORD`（12文字以上）で管理者を作成してください。
+> ローカル開発は `.env` で `MIRAI_ENV=development` に設定します。
 
 ## 🔐 ログイン（開発用デフォルト）
 
@@ -94,7 +103,9 @@ docker-compose up --build
 | viewer | viewer123 | Viewer | 閲覧のみ |
 | client | （管理者が作成） | Client | 割当てられた工事の閲覧のみ（発注者向け） |
 
-> ⚠️ 開発用の初期パスワードです。本番投入前に必ず変更してください。
+> ⚠️ 開発用の初期パスワードです。本番（`MIRAI_SEED_DEFAULT_USERS=0`）では
+> 作成されません。既存本番 DB に残っている場合は
+> `python scripts/disable_default_users.py --deactivate` で無効化してください。
 
 ## 📊 機能一覧
 
@@ -252,6 +263,11 @@ Scope別集計は算定画面のカード、Excel/CSV/PDFレポートの「Scope
 | DATABASE_URL | sqlite:///./carbon_navigator.db | DB接続文字列 |
 | MIRAI_SECRET_KEY | 起動時ランダム | トークン署名キー（本番は固定値を設定） |
 | MIRAI_CORS_ORIGINS | http://localhost:8000,http://127.0.0.1:8000 | 許可オリジン（カンマ区切り） |
+| MIRAI_ENV | development / production | production ではシークレット検証と既定アカウント無効化が有効 |
+| MIRAI_SEED_DEFAULT_USERS | 1（開発）/ 0（本番） | 0 の場合は初期管理者を環境変数で作成 |
+| MIRAI_INITIAL_ADMIN_USERNAME / PASSWORD / EMAIL | 未設定 | 本番初回の管理者作成（PASSWORD は12文字以上必須） |
+| MIRAI_LOGIN_MAX_FAILURES | 10 | 15分あたりのログイン失敗上限（超過で一時ロック） |
+| POSTGRES_PASSWORD | mirai（開発） | PostgreSQL パスワード（本番は必ず変更） |
 | MIRAI_SMTP_HOST / PORT / USER / PASSWORD / FROM / TLS | 未設定 | メール通知（未設定ならDB通知のみ） |
 | MIRAI_TEAMS_WEBHOOK | 未設定 | Teamsへの通知Webhook |
 | MIRAI_TELEMATICS_MODE | disabled | disabled / simulator / komatsu |
@@ -276,8 +292,18 @@ PostgreSQL は `docker-compose.yml` の `db` サービスで自動起動し、ap
 ```bash
 pip install -r requirements.txt pytest httpx
 pytest tests/ -v
-# → 156 passed
+# → 176 passed
 ```
+
+## 🔒 セキュリティ
+
+- パスワードは PBKDF2-SHA256（120,000回）、トークンは HMAC-SHA256、2FA は TOTP
+- OIDC ログインはワンタイムコード交換方式（URL にトークンを載せない）
+- ログイン失敗は 15分/10回で一時ロック、パスワードは10文字以上
+- フロントエンド資材は自己ホスト（CDN 依存なし）、CSP は `'self'` ベース
+- 全量エクスポートにパスワードハッシュ・TOTP 秘密・oidc_sub は含めない
+- 支店（site）・発注者（client）のデータは割当範囲に限定して参照・操作可能
+- 本番コンテナは `MIRAI_SECRET_KEY` 未設定なら起動拒否（fail-closed）
 
 ## 🗺️ ロードマップ
 
@@ -320,3 +346,5 @@ gantt
 
 - [要件定義書](./requirements.md)
 - [詳細設計仕様書](./detailed-design.md)
+- [総合評価・改善報告書](./docs/evaluation/README.md)
+- [運用文書](./docs/operations/README.md)

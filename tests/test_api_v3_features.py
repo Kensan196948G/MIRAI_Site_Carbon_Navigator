@@ -340,7 +340,7 @@ class TestClientPortal:
             "/api/users",
             json={
                 "username": username,
-                "password": "client123",
+                "password": "client12345",
                 "display_name": "発注者",
                 "role": "client",
             },
@@ -363,7 +363,7 @@ class TestClientPortal:
         portal = TC(fastapi_app)
         login = portal.post(
             "/api/auth/login",
-            json={"username": "client_user", "password": "client123"},
+            json={"username": "client_user", "password": "client12345"},
         )
         assert login.status_code == 200
         portal.headers.update({"Authorization": f"Bearer {login.json()['access_token']}"})
@@ -398,7 +398,7 @@ class TestClientPortal:
         portal = TC(fastapi_app)
         login = portal.post(
             "/api/auth/login",
-            json={"username": "client_dash", "password": "client123"},
+            json={"username": "client_dash", "password": "client12345"},
         )
         portal.headers.update({"Authorization": f"Bearer {login.json()['access_token']}"})
         dash = portal.get("/api/emissions/dashboard").json()

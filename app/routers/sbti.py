@@ -14,6 +14,8 @@ def list_targets(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    if user.role == "client":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     return crud.list_sbti_targets(db)
 
 
@@ -56,4 +58,6 @@ def progress(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    if user.role == "client":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     return compute_sbti_progress(db)

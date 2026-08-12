@@ -24,6 +24,8 @@ def list_factors(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    if user.role == "client":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     return crud.list_emission_factors(db, category=category)
 
 
@@ -33,6 +35,8 @@ def get_factor(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    if user.role == "client":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     factor = crud.get_emission_factor(db, factor_id)
     if not factor:
         raise HTTPException(status_code=404, detail="Emission factor not found")

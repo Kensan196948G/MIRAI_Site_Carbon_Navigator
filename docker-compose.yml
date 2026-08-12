@@ -4,7 +4,7 @@ services:
     environment:
       - POSTGRES_DB=mirai_carbon
       - POSTGRES_USER=mirai
-      - POSTGRES_PASSWORD=mirai
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-mirai}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -23,11 +23,16 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      - DATABASE_URL=postgresql+psycopg2://mirai:mirai@db:5432/mirai_carbon
+      - DATABASE_URL=postgresql+psycopg2://mirai:${POSTGRES_PASSWORD:-mirai}@db:5432/mirai_carbon
       - MIRAI_SECRET_KEY=${MIRAI_SECRET_KEY:-change-me-in-production}
+      - MIRAI_ENV=${MIRAI_ENV:-production}
+      - MIRAI_SEED_DEFAULT_USERS=${MIRAI_SEED_DEFAULT_USERS:-0}
+      - MIRAI_INITIAL_ADMIN_PASSWORD=${MIRAI_INITIAL_ADMIN_PASSWORD:-}
+      - MIRAI_INITIAL_ADMIN_USERNAME=${MIRAI_INITIAL_ADMIN_USERNAME:-admin}
       - MIRAI_CORS_ORIGINS=${MIRAI_CORS_ORIGINS:-http://localhost:8010,http://127.0.0.1:8010,https://carbon.mirai-dx-platform.com}
-      - MIRAI_ENABLE_HSTS=${MIRAI_ENABLE_HSTS:-0}
+      - MIRAI_ENABLE_HSTS=${MIRAI_ENABLE_HSTS:-1}
       - MIRAI_RATE_LIMIT_PER_MIN=${MIRAI_RATE_LIMIT_PER_MIN:-300}
+      - MIRAI_LOGIN_MAX_FAILURES=${MIRAI_LOGIN_MAX_FAILURES:-10}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
       interval: 30s

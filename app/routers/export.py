@@ -47,7 +47,10 @@ def export_full(
         "monthly_closes": _rows_to_dicts(crud.list_monthly_closes(db)),
         "branches": _rows_to_dicts(crud.list_branches(db)),
         "audit_logs": _rows_to_dicts(crud.list_audit_logs(db, limit=10000)),
-        "users": _rows_to_dicts(crud.list_users(db), exclude={"password_hash"}),
+        "users": _rows_to_dicts(
+            crud.list_users(db),
+            exclude={"password_hash", "totp_secret", "oidc_sub"},
+        ),
         "notifications": _rows_to_dicts(crud.list_notifications(db, user, limit=10000)),
     }
     buffer = io.BytesIO()

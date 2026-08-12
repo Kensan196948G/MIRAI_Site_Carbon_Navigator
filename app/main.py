@@ -106,11 +106,11 @@ async def security_headers(request: Request, call_next):
     response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' https://cdn.jsdelivr.net; "
-        "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
         "connect-src 'self'; "
-        "font-src 'self' https://cdn.jsdelivr.net"
+        "font-src 'self'"
     )
     if os.getenv("MIRAI_ENABLE_HSTS", "0") == "1":
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
@@ -192,10 +192,12 @@ app.include_router(assistant.router)
 app.include_router(admin.router)
 
 
-# Serve static frontend files
+# Serve static frontend files (frontend/static/ is the document root, so
+# references like /static/css/style.css resolve to frontend/static/css/style.css)
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
-if os.path.isdir(frontend_dir):
-    app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+static_dir = os.path.join(frontend_dir, "static")
+if os.path.isdir(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     @app.get("/", include_in_schema=False)
     async def serve_index():

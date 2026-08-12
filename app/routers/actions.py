@@ -17,9 +17,13 @@ def list_actions(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    return crud.list_reduction_actions(
+    actions = crud.list_reduction_actions(
         db, project_id=project_id, target_month=target_month, status=status
     )
+    if project_id is None:
+        allowed = set(crud.project_ids_for_user(db, user))
+        actions = [a for a in actions if a.project_id in allowed]
+    return actions
 
 
 @router.post("", response_model=schemas.ReductionActionRead, status_code=201)
@@ -30,6 +34,10 @@ def create_action(
 ):
     if not crud.get_project(db, body.project_id):
         raise HTTPException(status_code=404, detail="Project not found")
+    try:
+        crud.ensure_project_mutation_allowed(db, user, body.project_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
     return crud.create_reduction_action(db, body, user.username)
 
 
@@ -40,10 +48,14 @@ def update_action(
     db: Session = Depends(get_db),
     user=Depends(require_at_least("site")),
 ):
-    action = crud.update_reduction_action(db, action_id, body, user.username)
-    if not action:
+    existing = crud.get_reduction_action(db, action_id)
+    if existing is None:
         raise HTTPException(status_code=404, detail="Reduction action not found")
-    return action
+    try:
+        crud.ensure_project_mutation_allowed(db, user, existing.project_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    return crud.update_reduction_action(db, action_id, body, user.username)
 
 
 @router.delete("/{action_id}", status_code=204)
@@ -52,5 +64,11 @@ def delete_action(
     db: Session = Depends(get_db),
     user=Depends(require_at_least("reviewer")),
 ):
-    if not crud.delete_reduction_action(db, action_id, user.username):
+    action = crud.get_reduction_action(db, action_id)
+    if not action:
         raise HTTPException(status_code=404, detail="Reduction action not found")
+    try:
+        crud.ensure_project_mutation_allowed(db, user, action.project_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    crud.delete_reduction_action(db, action_id, user.username)
