@@ -32,15 +32,32 @@
     "F-05: 月次レポート(Excel)実装",
     "F-06: 削減ナビ実装",
     "Frontend: Bootstrap 5 SPA実装",
-    "Tests: 59件全通過"
+    "Tests: 59件全通過",
+    "SEC-01: 静的ファイル404解消（UI復旧）",
+    "SEC-02: 支店・発注者境界のデータ隔離（API/テスト）",
+    "SEC-03: エクスポートのTOTP秘密除外",
+    "SEC-04: OIDCワンタイムコード交換化",
+    "SEC-05: ログイン失敗制限・パスワード10文字化",
+    "SEC-06: 本番シードの既定アカウント廃止（環境変数による初期管理者）",
+    "SEC-07: フロントエンド自己ホスト化・CSP self化",
+    "SEC-08: 承認遷移制約・編集後draftリセット・工事削除カスケード",
+    "SEC-09: CIのpip-audit実効化・カバレッジゲート・Dependabot",
+    "OPS-01: monitor.sh readiness化・3連続アラート、backup checksum/verify",
+    "Docs: 総合評価・改善台帳・テスト証跡・ロードマップ追加",
+    "Tests: 176件全通過（セキュリティ回帰13件追加）"
   ],
   "blocked_issues": [],
   "learning": {
-    "failure_patterns": [],
+    "failure_patterns": [
+      "UI実装があっても静的マウントパスが違うと画面全体が機能しない",
+      "APIのリスト系エンドポイントはproject_id省略時に全データを返すため、利用者別フィルタが必須",
+      "開発用シードが本番起動毎に実行される構成は既定認証情報を永続化する"
+    ],
     "success_patterns": [
       "FastAPI + SQLite + SQLAlchemy でMVPを高速構築",
       "lifespan context manager で on_event deprecation 解消",
-      "StaticPool でテスト用インメモリDB共有"
+      "StaticPool でテスト用インメモリDB共有",
+      "実証テスト（TestClient）で権限漏れ・秘密漏えいを再現してから修正する"
     ]
   }
 }

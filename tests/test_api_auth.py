@@ -97,13 +97,13 @@ class TestRoleProtection:
     def test_duplicate_username_rejected(self, client: TestClient):
         resp = client.post(
             "/api/users",
-            json={"username": "admin", "password": "admin123", "role": "viewer"},
+            json={"username": "admin", "password": "admin12345", "role": "viewer"},
         )
         assert resp.status_code == 400
 
     def test_invalid_role_rejected(self, client: TestClient):
         resp = client.post(
             "/api/users",
-            json={"username": "badrole", "password": "pass1234", "role": "superadmin"},
+            json={"username": "badrole", "password": "pass123456", "role": "superadmin"},
         )
         assert resp.status_code == 400

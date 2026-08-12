@@ -144,14 +144,14 @@ class TestUserManagement:
         ).json()
         resp = client.put(
             f"/api/users/{created['user_id']}",
-            json={"role": "reviewer", "password": "newpass456"},
+            json={"role": "reviewer", "password": "newpass4567"},
         )
         assert resp.status_code == 200
         assert resp.json()["role"] == "reviewer"
 
         login = client.post(
             "/api/auth/login",
-            json={"username": "tmpuser", "password": "newpass456"},
+            json={"username": "tmpuser", "password": "newpass4567"},
         )
         assert login.status_code == 200
         assert login.json()["user"]["role"] == "reviewer"
@@ -159,11 +159,11 @@ class TestUserManagement:
     def test_deactivate_user_blocks_login(self, client: TestClient):
         created = client.post(
             "/api/users",
-            json={"username": "temp2", "password": "pass1234", "role": "viewer"},
+            json={"username": "temp2", "password": "pass123456", "role": "viewer"},
         ).json()
         client.put(f"/api/users/{created['user_id']}/active?is_active=false")
         login = client.post(
             "/api/auth/login",
-            json={"username": "temp2", "password": "pass1234"},
+            json={"username": "temp2", "password": "pass123456"},
         )
         assert login.status_code == 401

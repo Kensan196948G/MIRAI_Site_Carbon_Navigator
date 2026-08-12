@@ -59,7 +59,11 @@ async def import_projects(
                 end_date = end_date.strftime("%Y-%m-%d")
             schema = schemas.ProjectCreate(
                 name=str(record.get("name") or "").strip(),
-                branch=str(record.get("branch") or "").strip(),
+                branch=(
+                    user.branch
+                    if user.role == "site" and user.branch
+                    else str(record.get("branch") or "").strip()
+                ),
                 work_type=str(record.get("work_type") or "").strip(),
                 start_date=__import__("datetime").date.fromisoformat(str(start_date).strip()),
                 end_date=__import__("datetime").date.fromisoformat(str(end_date).strip()),
@@ -125,6 +129,13 @@ def update_project(
         raise HTTPException(status_code=404, detail="Project not found")
     if user.role == "site" and user.branch and existing.branch != user.branch:
         raise HTTPException(status_code=403, detail="他支店の工事は変更できません")
+    if (
+        user.role == "site"
+        and user.branch
+        and "branch" in body.model_fields_set
+        and body.branch != user.branch
+    ):
+        raise HTTPException(status_code=403, detail="支店の変更は管理者に依頼してください")
     project = crud.update_project(db, project_id, body, user.username)
     return project
 

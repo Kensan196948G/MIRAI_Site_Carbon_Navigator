@@ -11,6 +11,7 @@ echo "[backup] $(date -Is) start"
 cd "$ROOT"
 docker compose exec -T db pg_dump -U mirai -d mirai_carbon --format=custom \
   > "$OUT_DIR/mirai_carbon_$STAMP.dump"
+sha256sum "$OUT_DIR/mirai_carbon_$STAMP.dump" > "$OUT_DIR/mirai_carbon_$STAMP.dump.sha256"
 
 # Keep the last 14 backups
 ls -1t "$OUT_DIR"/mirai_carbon_*.dump 2>/dev/null | tail -n +15 | xargs -r rm -f

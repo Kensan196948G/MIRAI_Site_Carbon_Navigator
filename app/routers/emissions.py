@@ -84,6 +84,10 @@ def run_calculation(
     project = crud.get_project(db, body.project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    try:
+        crud.ensure_project_mutation_allowed(db, user, body.project_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
     if crud.is_month_closed(db, body.project_id, body.target_month):
         raise HTTPException(status_code=400, detail="対象月は締め済みのため再算定できません")
     outcome = calculate_all_for_month(db, body.project_id, body.target_month)
@@ -125,7 +129,12 @@ def get_results(
     user=Depends(get_current_user),
 ):
     _ensure_project_access(user, db, project_id)
-    return crud.get_results_by_project(db, project_id=project_id, target_month=target_month)
+    return crud.get_results_by_project(
+        db,
+        project_id=project_id,
+        target_month=target_month,
+        project_ids=crud.project_ids_for_user(db, user) if project_id is None else None,
+    )
 
 
 @router.get("/summary", response_model=list[schemas.SummaryItem])
@@ -136,7 +145,12 @@ def get_summary(
     user=Depends(get_current_user),
 ):
     _ensure_project_access(user, db, project_id)
-    results = crud.get_results_by_project(db, project_id=project_id, target_month=target_month)
+    results = crud.get_results_by_project(
+        db,
+        project_id=project_id,
+        target_month=target_month,
+        project_ids=crud.project_ids_for_user(db, user) if project_id is None else None,
+    )
     totals: dict[str, float] = {}
     for r in results:
         cat = r.activity.category
@@ -152,7 +166,12 @@ def get_trend(
     user=Depends(get_current_user),
 ):
     _ensure_project_access(user, db, project_id)
-    return crud.get_monthly_trend(db, project_id=project_id, category=category)
+    return crud.get_monthly_trend(
+        db,
+        project_id=project_id,
+        category=category,
+        project_ids=crud.project_ids_for_user(db, user) if project_id is None else None,
+    )
 
 
 @router.get("/missing-factors", response_model=list[schemas.MissingFactorItem])
@@ -163,7 +182,12 @@ def get_missing_factors(
     user=Depends(get_current_user),
 ):
     _ensure_project_access(user, db, project_id)
-    activities = crud.find_missing_factors(db, project_id=project_id, target_month=target_month)
+    activities = crud.find_missing_factors(
+        db,
+        project_id=project_id,
+        target_month=target_month,
+        project_ids=crud.project_ids_for_user(db, user) if project_id is None else None,
+    )
     return [
         schemas.MissingFactorItem(
             activity_id=a.activity_id,
@@ -212,7 +236,12 @@ def get_scope_summary(
     user=Depends(get_current_user),
 ):
     _ensure_project_access(user, db, project_id)
-    results = crud.get_results_by_project(db, project_id=project_id, target_month=target_month)
+    results = crud.get_results_by_project(
+        db,
+        project_id=project_id,
+        target_month=target_month,
+        project_ids=crud.project_ids_for_user(db, user) if project_id is None else None,
+    )
     if year:
         prefix = f"{year}-"
         results = [r for r in results if r.activity.target_month.startswith(prefix)]
@@ -246,7 +275,9 @@ def get_reminders(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    return crud.get_monthly_reminders(db, target_month)
+    reminders = crud.get_monthly_reminders(db, target_month)
+    allowed = set(crud.project_ids_for_user(db, user))
+    return [r for r in reminders if r["project_id"] in allowed]
 
 
 @router.get("/comparison", response_model=schemas.ComparisonItem)

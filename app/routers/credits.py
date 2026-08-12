@@ -15,6 +15,8 @@ def list_credits(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    if user.role == "client":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     return crud.list_offset_credits(db, status=status)
 
 
@@ -23,6 +25,8 @@ def credit_summary(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    if user.role == "client":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     return crud.offset_summary(db)
 
 

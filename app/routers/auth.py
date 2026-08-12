@@ -1,7 +1,8 @@
+import os
 import secrets
 import time
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -22,13 +23,53 @@ from ..services import oidc
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 _oidc_states: dict[str, float] = {}
+_oidc_codes: dict[str, dict] = {}
+_login_failures: dict[str, list[float]] = {}
+
+_LOGIN_FAILURE_WINDOW = 15 * 60
+_LOGIN_LOCKOUT_SECONDS = 15 * 60
+_MAX_LOGIN_FAILURES = int(os.getenv("MIRAI_LOGIN_MAX_FAILURES", "10"))
+
+
+def _login_key(username: str, request: Request) -> str:
+    ip = request.client.host if request.client else "unknown"
+    return f"{username.lower()}|{ip}"
+
+
+def _check_login_throttle(key: str) -> None:
+    now = time.time()
+    failures = [t for t in _login_failures.get(key, []) if now - t < _LOGIN_FAILURE_WINDOW]
+    if len(failures) >= _MAX_LOGIN_FAILURES:
+        oldest = min(failures) if failures else now
+        retry_after = max(1, int(_LOGIN_LOCKOUT_SECONDS - (now - oldest)))
+        raise HTTPException(
+            status_code=429,
+            detail="ログイン試行回数が上限を超えました。しばらく待ってから再試行してください。",
+            headers={"Retry-After": str(retry_after)},
+        )
+    _login_failures[key] = failures
+
+
+def _record_login_failure(key: str) -> None:
+    now = time.time()
+    failures = [t for t in _login_failures.get(key, []) if now - t < _LOGIN_FAILURE_WINDOW]
+    failures.append(now)
+    _login_failures[key] = failures
 
 
 @router.post("/login", response_model=schemas.LoginResponse)
-def login(body: schemas.LoginRequest, db: Session = Depends(get_db)):
+def login(
+    body: schemas.LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    key = _login_key(body.username, request)
+    _check_login_throttle(key)
     user = crud.get_user_by_username(db, body.username)
     if not user or not user.is_active or not verify_password(body.password, user.password_hash):
+        _record_login_failure(key)
         raise HTTPException(status_code=401, detail="Invalid username or password")
+    _login_failures.pop(key, None)
     if user.is_2fa_enabled:
         crud.add_audit_log(db, user.username, "login", "user", user.user_id, "2fa pending")
         return schemas.LoginResponse(
@@ -145,6 +186,26 @@ def oidc_callback(code: str, state: str, db: Session = Depends(get_db)):
     user = crud.find_or_create_oidc_user(
         db, claims["sub"], claims.get("email"), claims.get("name")
     )
-    token = create_token(user.user_id, user.username, user.role)
+    exchange_code = secrets.token_urlsafe(24)
+    _oidc_codes[exchange_code] = {
+        "user_id": user.user_id,
+        "expires": time.time() + 60,
+    }
     frontend = __import__("os").getenv("MIRAI_FRONTEND_URL", "http://localhost:8000")
-    return RedirectResponse(f"{frontend}/?token={token}")
+    return RedirectResponse(f"{frontend}/?code={exchange_code}")
+
+
+@router.post("/oidc/exchange", response_model=schemas.TokenResponse)
+def oidc_exchange(
+    body: schemas.OidcExchangeRequest,
+    db: Session = Depends(get_db),
+):
+    entry = _oidc_codes.pop(body.code, None)
+    if not entry or entry["expires"] < time.time():
+        raise HTTPException(status_code=400, detail="Invalid or expired OIDC code")
+    user = crud.get_user(db, entry["user_id"])
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User inactive or not found")
+    token = create_token(user.user_id, user.username, user.role)
+    crud.add_audit_log(db, user.username, "login", "user", user.user_id, "oidc code exchange")
+    return schemas.TokenResponse(access_token=token, user=user)

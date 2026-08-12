@@ -276,6 +276,11 @@ function updateAuthUI() {
   if (auth && auth.user) {
     userLabel.textContent = `${auth.user.display_name || auth.user.username} (${ROLE_LABELS[auth.user.role] || auth.user.role})`;
     logoutBtn.classList.remove('d-none');
+    const isClient = auth.user.role === 'client';
+    ['factorsNavItem', 'sbtiNavItem', 'creditsNavItem'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('d-none', isClient);
+    });
   } else {
     userLabel.textContent = '';
     logoutBtn.classList.add('d-none');
@@ -3033,15 +3038,12 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(refreshUnreadBadge, 60000);
   } else {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    if (token) {
-      setAuth({ token });
-      history.replaceState({}, '', window.location.pathname);
-      fetchJSON('/api/auth/me')
-        .then(user => {
-          const auth = getAuth();
-          auth.user = user;
-          setAuth(auth);
+    const code = params.get('code');
+    if (code) {
+      fetchJSON('/api/auth/oidc/exchange', { method: 'POST', body: { code } })
+        .then(data => {
+          setAuth({ token: data.access_token, user: data.user });
+          history.replaceState({}, '', window.location.pathname);
           updateAuthUI();
           showToast('SSOでログインしました', 'success');
           navigateTo('dashboard');

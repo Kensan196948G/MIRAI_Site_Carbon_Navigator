@@ -18,7 +18,6 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from . import crud
 from .database import get_db
 
 SECRET_KEY = os.getenv("MIRAI_SECRET_KEY", secrets.token_hex(32))
@@ -111,6 +110,8 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     db: Session = Depends(get_db),
 ):
+    from . import crud
+
     if credentials is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

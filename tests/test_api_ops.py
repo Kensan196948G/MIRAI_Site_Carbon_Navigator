@@ -20,7 +20,9 @@ class TestSecurityHeaders:
         resp = client.get("/")
         assert resp.headers["x-content-type-options"] == "nosniff"
         assert resp.headers["x-frame-options"] == "DENY"
-        assert "cdn.jsdelivr.net" in resp.headers["content-security-policy"]
+        csp = resp.headers["content-security-policy"]
+        assert "cdn.jsdelivr.net" not in csp
+        assert "script-src 'self'" in csp
         assert resp.headers["referrer-policy"] == "same-origin"
 
 

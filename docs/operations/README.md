@@ -23,6 +23,10 @@ MIRAI Site Carbon Navigator の本番運用に必要な文書です。
 | バックアップ | `scripts/backup.sh` → `backups/`（14世代保持） |
 | 監視 | `scripts/monitor.sh` → `logs/monitor.log`（cron 5分毎） |
 | デプロイ | `scripts/deploy.sh`（main確定commitから実施） |
+| Tunnel | user systemd サービス `mirai-carbon-cloudflared.service`（`MIRAI_TUNNEL_TOKEN` で実行、定義は [scripts/mirai-carbon-cloudflared.service.example](../../scripts/mirai-carbon-cloudflared.service.example)） |
+
+> スモークテスト（`scripts/smoke.sh`）は `SMOKE_PASSWORD` 環境変数が必須です。
+> 既定開発パスワードは本番では使えません。
 
 ## 定期ジョブ（cron）
 

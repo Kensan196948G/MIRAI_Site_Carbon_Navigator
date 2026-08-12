@@ -4,7 +4,12 @@ set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://127.0.0.1:8020}"
 USERNAME="${SMOKE_USER:-admin}"
-PASSWORD="${SMOKE_PASSWORD:-admin123}"
+PASSWORD="${SMOKE_PASSWORD:-}"
+
+if [ -z "$PASSWORD" ]; then
+  echo "[smoke] ERROR: SMOKE_PASSWORD is required (SMOKE_USER defaults to admin)" >&2
+  exit 1
+fi
 
 echo "[smoke] health"
 curl -fsS "$BASE_URL/api/health" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d["status"]=="ok"; print("health ok", d["version"])'
