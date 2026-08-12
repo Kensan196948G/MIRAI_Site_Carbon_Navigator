@@ -1,0 +1,25 @@
+[Unit]
+Description=MIRAI Site Carbon Navigator Cloudflare Tunnel (carbon.mirai-dx-platform.com)
+Documentation=https://github.com/Kensan196948G/MIRAI_Site_Carbon_Navigator
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=200
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# .env に MIRAI_TUNNEL_TOKEN を設定（Git にコミットしない）
+EnvironmentFile=/home/kensan/Projects/Mirai-DX-Project/MIRAI_Site_Carbon_Navigator/.env
+ExecStart=/bin/bash -c 'exec /usr/local/bin/cloudflared tunnel --no-autoupdate run --token "$MIRAI_TUNNEL_TOKEN"'
+Restart=always
+RestartSec=10
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mirai-carbon-cloudflared
+
+[Install]
+WantedBy=default.target
