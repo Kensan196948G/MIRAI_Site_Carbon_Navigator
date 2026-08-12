@@ -14,6 +14,12 @@
   `python scripts/disable_default_users.py --deactivate`（確認は引数なしで実行）
 - コンテナは本番モードで `MIRAI_SECRET_KEY` がプレースホルダーなら起動を拒否
 
+### 本番実施記録（2026-08-12）
+
+- 既定 4 アカウント（admin/reviewer/site/viewer）は無効化済み
+- 代替管理者 `carbon_admin` を作成。初回パスワードは `/home/kensan/.mirai_carbon_admin.cred`（0600）に保存し、初回ログイン後に変更を推奨
+- Tunnel は user systemd サービス化。`MIRAI_TUNNEL_TOKEN` がプロセス引数に現れるため、次回 Cloudflare ダッシュボード操作時にトークン再発行（ローテーション）を推奨
+
 ## 認証・入力の保護（2026-08-12 追加）
 
 - ログイン失敗は 15分/10回（`MIRAI_LOGIN_MAX_FAILURES`）で一時ロック（429）

@@ -45,3 +45,14 @@
 - 負荷試験（600 名同時利用想定）
 - 本番 DB に対する復元試験・既定アカウント無効化作業（人間承認待ち）
 - 公開 URL の可用性確認（Tunnel 復旧待ち）
+
+## 2026-08-12 夜間の本番検証（追記）
+
+| 項目 | 結果 |
+|---|---|
+| Cloudflare Tunnel 復旧 | OK（user systemd サービス化、`mirai-site-carbon-navigator` 0接続→4接続） |
+| 公開 URL | `/api/health/ready` 200（db ok）、CSS/JS/vendor 200 |
+| 本番デプロイ | PR #5 マージ（1e2ee93）→ `scripts/deploy.sh` 成功、health 20s・smoke PASS |
+| 公開経由の実操作 | carbon_admin ログイン → ダッシュボード（project_count=2）成功 |
+| 既定アカウント無効化 | admin/reviewer/site/viewer を is_active=false、旧 admin ログイン 401 を確認 |
+| 通知試験 | SMTP/Teams 未設定のため false（設定には M365/Teams 資格情報が必要） |

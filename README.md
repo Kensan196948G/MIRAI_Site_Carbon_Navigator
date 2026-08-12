@@ -72,11 +72,11 @@ API ドキュメントは `http://localhost:8000/docs` で確認できます。
 
 ## 🌐 本番環境
 
-- URL: https://carbon.mirai-dx-platform.com
-- ステータス: ⚠️ 2026-08-12 時点で Cloudflare Tunnel 障害により 530 応答（復旧作業中）
+- URL: https://carbon.mirai-dx-platform.com（✅ 2026-08-12 復旧・稼働中）
 - 構成: FastAPI（Docker）+ PostgreSQL 16 + Cloudflare Tunnel（mirai-dx-platform.com）
 - バックアップ: `scripts/backup.sh`（毎日02:00、14世代保持）
 - 監視: `scripts/monitor.sh`（5分毎、`logs/monitor.log`）
+- Tunnel: user systemd サービス `mirai-carbon-cloudflared.service`（定義: [scripts/mirai-carbon-cloudflared.service.example](./scripts/mirai-carbon-cloudflared.service.example)）
 - 運用文書: [docs/operations/](./docs/operations/README.md)（SLO・Runbook・バックアップ/復元・監視・運用台帳・セキュリティ）
 
 ### Docker 起動
@@ -106,6 +106,7 @@ docker-compose up --build
 > ⚠️ 開発用の初期パスワードです。本番（`MIRAI_SEED_DEFAULT_USERS=0`）では
 > 作成されません。既存本番 DB に残っている場合は
 > `python scripts/disable_default_users.py --deactivate` で無効化してください。
+> ※2026-08-12 に本番 DB の既定 4 アカウントは無効化済み。代替管理者は `carbon_admin`。
 
 ## 📊 機能一覧
 
