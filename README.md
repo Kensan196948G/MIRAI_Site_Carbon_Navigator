@@ -172,8 +172,10 @@ CO2排出量 (kg) = 活動量 × 排出係数
 |---|---|---|
 | fuel (燃料) | 軽油 | 2.58 kg-CO2/L |
 | fuel (燃料) | A重油 | 2.71 kg-CO2/L |
-| power (電力) | 電力 | 0.434 kg-CO2/kWh |
+| power (電力) | 電力（全国平均） | 0.423 kg-CO2/kWh（2026-08-12適用） |
+| power (電力) | 電力（東京電力EP） | 0.421 kg-CO2/kWh（2024年度速報値） |
 | material (材料) | 鋼材 | 2,000 kg-CO2/t |
+| material (材料) | セメント | 741.3 kg-CO2/t |
 | transport (輸送) | 一般輸送 | 0.172 kg-CO2/t-km |
 | machine (建機) | 油圧ショベル | 18.5 kg-CO2/h (目安) |
 | ship (船舶) | 作業船 | 120 kg-CO2/h (目安) |
@@ -181,7 +183,7 @@ CO2排出量 (kg) = 活動量 × 排出係数
 | commuting (通勤) | 通勤(車) | 0.130 kg-CO2/人-km |
 | water (水) | 上水道 | 0.360 kg-CO2/m3 (目安) |
 
-> 出典: 環境省 排出係数ほか（seed_data.py にて投入）
+> 出典: 環境省・国交省・業界団体公表値ほか（詳細は [docs/operations/EMISSION_FACTORS_RECONCILIATION.md](./docs/operations/EMISSION_FACTORS_RECONCILIATION.md)）
 
 ### GHG Protocol Scope 分類
 

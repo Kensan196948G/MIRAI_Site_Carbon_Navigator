@@ -56,3 +56,14 @@
 | 公開経由の実操作 | carbon_admin ログイン → ダッシュボード（project_count=2）成功 |
 | 既定アカウント無効化 | admin/reviewer/site/viewer を is_active=false、旧 admin ログイン 401 を確認 |
 | 通知試験 | SMTP/Teams 未設定のため false（設定には M365/Teams 資格情報が必要） |
+
+## 2026-08-12 残課題対応（追記）
+
+| 項目 | 結果 |
+|---|---|
+| Tunnel トークン再ローテーション | OK（新トークン発行・旧トークン退避、systemd は `TUNNEL_TOKEN` 環境変数経由で引数非露出） |
+| carbon_admin 初回パスワード変更 | OK（24文字ランダム、旧パスワード 401、`.cred` 0600） |
+| 通知設定配線 | docker-compose に `MIRAI_SMTP_*` / `MIRAI_TEAMS_WEBHOOK` を追加、`configure_notifications.sh`・手順書を追加 |
+| 排出係数一次情報突合 | 燃料・電力・輸送・材料を公式資料と突合。`reconcile_emission_factors.py` を temp DB で dry-run/apply 検証（adds=31、conflicts=0） |
+| pytest / ruff 再実行 | 178 passed / ruff 0 error（残課題対応後の master 作業ツリー） |
+| 実SMTP/Teams通知試験 | 未実施（M365アプリパスワード・Teams Webhook URL の提供待ち） |

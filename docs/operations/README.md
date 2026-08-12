@@ -10,6 +10,9 @@ MIRAI Site Carbon Navigator の本番運用に必要な文書です。
 | [RUNBOOK.md](./RUNBOOK.md) | 障害対応・切り分け・rollback・復旧・データ訂正・連絡手順 |
 | [OPERATIONS_LEDGER.md](./OPERATIONS_LEDGER.md) | 日次・週次・月次・四半期点検、担当、周期、証跡、次回予定 |
 | [SECURITY.md](./SECURITY.md) | 秘密情報・証明書・Secrets・アクセス権限・依存関係・ライセンス管理 |
+| [NOTIFICATIONS_SETUP.md](./NOTIFICATIONS_SETUP.md) | SMTP/Teams 通知チャネルの設定手順と通知試験 |
+| [EMISSION_FACTORS_RECONCILIATION.md](./EMISSION_FACTORS_RECONCILIATION.md) | 排出係数の一次情報突合台帳・適用開始日・出典 |
+| [POC_PLAN.md](./POC_PLAN.md) | Phase 8: 2現場実地PoCの計画・準備タスク・受入基準 |
 
 ## 本番環境の一意特定情報
 

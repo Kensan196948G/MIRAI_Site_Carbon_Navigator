@@ -17,8 +17,9 @@
 ### 本番実施記録（2026-08-12）
 
 - 既定 4 アカウント（admin/reviewer/site/viewer）は無効化済み
-- 代替管理者 `carbon_admin` を作成。初回パスワードは `/home/kensan/.mirai_carbon_admin.cred`（0600）に保存し、初回ログイン後に変更を推奨
-- Tunnel は user systemd サービス化。`MIRAI_TUNNEL_TOKEN` がプロセス引数に現れるため、次回 Cloudflare ダッシュボード操作時にトークン再発行（ローテーション）を推奨
+- 代替管理者 `carbon_admin` の初回パスワードを 24 文字ランダムへ変更済み（`/home/kensan/.mirai_carbon_admin.cred`、0600）
+- Cloudflare Tunnel トークンを再発行・ローテーション済み（旧トークンは `~/.mirai_carbon_tunnel_token.old` に退避）
+- systemd サービスは環境変数 `TUNNEL_TOKEN` 経由でトークンを渡し、`ps` などのプロセス引数にトークンが露出しない構成へ変更済み（`scripts/mirai-carbon-cloudflared.service.example` にも反映）
 
 ## 認証・入力の保護（2026-08-12 追加）
 

@@ -77,6 +77,10 @@ YYYY-MM-DD HH:MM 項目名 / 担当 / 結果（OK・NG・保留） / 備考 / �
 2026-08-12 20:47 公開URL確認 / 運用管理者 / OK（/api/health/ready 200、CSS/JS/vendor 200、公開経由ログイン・ダッシュボード確認）
 2026-08-12 20:49 既定アカウント無効化 / 管理者 / OK（admin/reviewer/site/viewer を is_active=false、代替管理者 carbon_admin を作成・動作確認）
 2026-08-12 20:50 通知試験 / 運用管理者 / NG→保留（SMTP/Teams 未設定。M365/Teams 資格情報の提供待ち）
+2026-08-12 21:05 Tunnelトークン再ローテーション / セキュリティ / OK（新トークン発行・旧トークンを ~/.mirai_carbon_tunnel_token.old へ退避、systemd引数からトークン露出を排除、公開URL 200継続）
+2026-08-12 21:06 carbon_admin初回パスワード変更 / 管理者 / OK（24文字ランダムへ更新、旧パスワード401確認、.cred 0600に保存）
+2026-08-12 21:08 通知設定スクリプト・手順整備 / 開発者 / OK（compose環境変数追加・configure_notifications.sh・NOTIFICATIONS_SETUP.md。実設定は資格情報提供後）
+2026-08-12 21:10 排出係数一次情報突合 / 環境担当 / 実施中→反映（燃料・電力・輸送・材料を一次情報と突合、EMISSION_FACTORS_RECONCILIATION.md 作成、reconcile スクリプトで適用予定）
 ```
 
 ### 代替管理者について
