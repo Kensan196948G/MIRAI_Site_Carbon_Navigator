@@ -67,3 +67,9 @@
 | 排出係数一次情報突合 | 燃料・電力・輸送・材料を公式資料と突合。`reconcile_emission_factors.py` を temp DB で dry-run/apply 検証（adds=31、conflicts=0） |
 | pytest / ruff 再実行 | 178 passed / ruff 0 error（残課題対応後の master 作業ツリー） |
 | 実SMTP/Teams通知試験 | 未実施（M365アプリパスワード・Teams Webhook URL の提供待ち） |
+
+## 2026-08-12 通知経路の単体テスト（追記）
+
+- `tests/test_notifications.py` を追加（SMTP 送信成功・未設定時 false、Teams webhook 送信成功・未設定時 false）
+- pytest は通知テスト 4 件を追加し **182 passed / ruff 0 error**
+- 実 SMTP/Teams への送信は M365 資格情報・Webhook URL 提供後の `scripts/configure_notifications.sh` で確認する
