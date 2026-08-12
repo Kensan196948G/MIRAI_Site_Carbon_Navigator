@@ -33,6 +33,13 @@ services:
       - MIRAI_ENABLE_HSTS=${MIRAI_ENABLE_HSTS:-1}
       - MIRAI_RATE_LIMIT_PER_MIN=${MIRAI_RATE_LIMIT_PER_MIN:-300}
       - MIRAI_LOGIN_MAX_FAILURES=${MIRAI_LOGIN_MAX_FAILURES:-10}
+      - MIRAI_SMTP_HOST=${MIRAI_SMTP_HOST:-}
+      - MIRAI_SMTP_PORT=${MIRAI_SMTP_PORT:-587}
+      - MIRAI_SMTP_USER=${MIRAI_SMTP_USER:-}
+      - MIRAI_SMTP_PASSWORD=${MIRAI_SMTP_PASSWORD:-}
+      - MIRAI_SMTP_FROM=${MIRAI_SMTP_FROM:-}
+      - MIRAI_SMTP_TLS=${MIRAI_SMTP_TLS:-1}
+      - MIRAI_TEAMS_WEBHOOK=${MIRAI_TEAMS_WEBHOOK:-}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
       interval: 30s

@@ -44,7 +44,12 @@
     "SEC-09: CIのpip-audit実効化・カバレッジゲート・Dependabot",
     "OPS-01: monitor.sh readiness化・3連続アラート、backup checksum/verify",
     "Docs: 総合評価・改善台帳・テスト証跡・ロードマップ追加",
-    "Tests: 176件全通過（セキュリティ回帰13件追加）"
+    "Tests: 176件全通過（セキュリティ回帰13件追加）",
+    "OPS-02: Tunnelトークン再ローテーション・systemd引数非露出化",
+    "SEC-10: carbon_admin初回パスワード変更（24文字ランダム）",
+    "OPS-03: SMTP/Teams通知の配線・設定スクリプト・手順書追加",
+    "DATA-01: 排出係数一次情報突合台帳と反映スクリプト追加",
+    "Tests: 178件全通過（残課題対応後）"
   ],
   "blocked_issues": [],
   "learning": {

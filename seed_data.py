@@ -13,48 +13,91 @@ from app.database import SessionLocal, create_tables
 from app.models import Branch, User
 from app.security import hash_password
 
+FACTORS = [
+        # Fuel
+        # 燃料は地球温暖化対策推進法施行令別表第一（地方公共団体実行計画マニュアル 2024-04 表3-5）による値。
+        # 参考: 算定・報告・公表制度の算定省令別表では軽油2.62 / ガソリン2.29 / A重油2.75 / LPG2.99 に更新されている。
+        {"category": "fuel", "item_name": "軽油", "unit": "L", "factor_value": 2.58,
+         "effective_from": "2026-01-01", "source": "環境省 地方公共団体実行計画マニュアル（事務事業編）2024-04 表3-5（施行令別表第一）"},
+        {"category": "fuel", "item_name": "A重油", "unit": "L", "factor_value": 2.71,
+         "effective_from": "2026-01-01", "source": "環境省 地方公共団体実行計画マニュアル（事務事業編）2024-04 表3-5（施行令別表第一）"},
+        {"category": "fuel", "item_name": "ガソリン", "unit": "L", "factor_value": 2.32,
+         "effective_from": "2026-01-01", "source": "環境省 地方公共団体実行計画マニュアル（事務事業編）2024-04 表3-5（施行令別表第一）"},
+        {"category": "fuel", "item_name": "LPG", "unit": "kg", "factor_value": 3.00,
+         "effective_from": "2026-01-01", "source": "環境省 地方公共団体実行計画マニュアル（事務事業編）2024-04 表3-5（施行令別表第一）"},
+        # Power
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.434,
+         "effective_from": "2026-01-01", "source": "環境省 排出係数 (全国平均・旧デフォルト)"},
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.435,
+         "effective_from": "2026-01-01", "source": "東京電力EP 排出係数 (目安・旧値)", "supplier": "東京電力EP"},
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.409,
+         "effective_from": "2026-01-01", "source": "関西電力 排出係数 (目安・旧値)", "supplier": "関西電力"},
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.428,
+         "effective_from": "2026-01-01", "source": "中部電力 排出係数 (目安・旧値)", "supplier": "中部電力"},
+        # 一次情報突合後の最新値（2026-08-12 適用開始）
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.423,
+         "effective_from": "2026-08-12", "source": "環境省・経産省 電気事業者別排出係数一覧（全国平均係数 2025-07-18更新）"},
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.421,
+         "effective_from": "2026-08-12", "source": "東京電力EP 2024年度調整後排出係数（速報値）2025-08-01", "supplier": "東京電力EP"},
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.419,
+         "effective_from": "2026-08-12", "source": "環境省・経産省 電気事業者別排出係数一覧（関西電力 メニューJ残差・R6実績 2025-07-18更新）", "supplier": "関西電力"},
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.421,
+         "effective_from": "2026-08-12", "source": "環境省・経産省 電気事業者別排出係数一覧（中部電力ミライズ メニューB残差・R6実績 2025-07-18更新）", "supplier": "中部電力"},
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.417,
+         "effective_from": "2026-08-12", "source": "環境省・経産省 電気事業者別排出係数一覧（九州電力 メニューB残差・R6実績 2025-07-18更新）", "supplier": "九州電力"},
+        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.402,
+         "effective_from": "2026-08-12", "source": "環境省・経産省 電気事業者別排出係数一覧（東北電力 メニューD残差・R6実績 2025-07-18更新）", "supplier": "東北電力"},
+        # Material
+        {"category": "material", "item_name": "鋼材", "unit": "t", "factor_value": 2000.0,
+         "effective_from": "2026-01-01", "source": "日本鉄鋼連盟 LCIデータ（2018年度日本平均・製造段階のみ）"},
+        {"category": "material", "item_name": "コンクリート", "unit": "t", "factor_value": 300.0,
+         "effective_from": "2026-01-01", "source": "業界資料等（目安・要検証）"},
+        {"category": "material", "item_name": "生コン", "unit": "t", "factor_value": 300.0,
+         "effective_from": "2026-01-01", "source": "業界資料等（目安・要検証）"},
+        {"category": "material", "item_name": "セメント", "unit": "t", "factor_value": 750.0,
+         "effective_from": "2026-01-01", "source": "セメント協会 LCI（旧値・目安）"},
+        {"category": "material", "item_name": "アスファルト", "unit": "t", "factor_value": 200.0,
+         "effective_from": "2026-01-01", "source": "業界資料等（目安・要検証）"},
+        # 一次情報突合後の最新値（2026-08-12 適用開始）
+        {"category": "material", "item_name": "鋼材", "unit": "t", "factor_value": 2000.0,
+         "effective_from": "2026-08-12", "source": "日本鉄鋼連盟 LCIデータ（2018年度日本平均・製造段階のみ 2,000kg-CO2/t）"},
+        {"category": "material", "item_name": "セメント", "unit": "t", "factor_value": 741.3,
+         "effective_from": "2026-08-12", "source": "セメント協会 セメントのLCIデータの概要（2023年度実績・ポルトランドセメント 741.3kg-CO2/t）"},
+        # Transport
+        {"category": "transport", "item_name": "一般輸送", "unit": "t-km", "factor_value": 0.172,
+         "effective_from": "2026-01-01", "source": "旧・物流分野CO2算定共同ガイドライン系（目安・要更新）"},
+        {"category": "transport", "item_name": "船舶輸送", "unit": "t-km", "factor_value": 0.039,
+         "effective_from": "2026-01-01", "source": "環境省 算定・報告・公表制度マニュアル 第Ⅱ編 表Ⅱ-3-2（その他の船舶 39g-CO2/t-km・2025-03版）"},
+        {"category": "machine", "item_name": "油圧ショベル", "unit": "h", "factor_value": 18.5,
+         "effective_from": "2026-01-01", "source": "建機メーカーカタログ値（目安・要機種別確認）"},
+        {"category": "machine", "item_name": "クローラクレーン", "unit": "h", "factor_value": 32.0,
+         "effective_from": "2026-01-01", "source": "建機メーカーカタログ値（目安・要機種別確認）"},
+        {"category": "ship", "item_name": "作業船", "unit": "h", "factor_value": 120.0,
+         "effective_from": "2026-01-01", "source": "内航船排出原単位（目安・要船種別確認）"},
+        {"category": "waste", "item_name": "建設廃棄物", "unit": "t", "factor_value": 45.0,
+         "effective_from": "2026-01-01", "source": "廃棄物処理原単位（目安・要検証）"},
+        {"category": "business_travel", "item_name": "出張(鉄道)", "unit": "人-km", "factor_value": 0.021,
+         "effective_from": "2026-01-01", "source": "国土交通省 鉄道分野のカーボンニュートラル（2019年度 17g-CO2/人-km）"},
+        {"category": "business_travel", "item_name": "出張(飛行機)", "unit": "人-km", "factor_value": 0.095,
+         "effective_from": "2026-01-01", "source": "国土交通省（2019年度 航空 98g-CO2/人-km）"},
+        {"category": "commuting", "item_name": "通勤(車)", "unit": "人-km", "factor_value": 0.130,
+         "effective_from": "2026-01-01", "source": "国土交通省（2019年度 自家用乗用車 130g-CO2/人-km）"},
+        {"category": "water", "item_name": "上水道", "unit": "m3", "factor_value": 0.360,
+         "effective_from": "2026-01-01", "source": "水道排出原単位（目安・要検証）"},
+]
 
 def seed():
     create_tables()
     db = SessionLocal()
 
-    factors = [
-        # Fuel
-        {"category": "fuel", "item_name": "軽油", "unit": "L", "factor_value": 2.58, "source": "環境省 排出係数"},
-        {"category": "fuel", "item_name": "A重油", "unit": "L", "factor_value": 2.71, "source": "環境省 排出係数"},
-        {"category": "fuel", "item_name": "ガソリン", "unit": "L", "factor_value": 2.32, "source": "環境省 排出係数"},
-        {"category": "fuel", "item_name": "LPG", "unit": "kg", "factor_value": 3.00, "source": "環境省 排出係数"},
-        # Power
-        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.434, "source": "環境省 排出係数 (全国平均)"},
-        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.421, "source": "東京電力EP 2024年度調整後排出係数(速報値)", "supplier": "東京電力EP"},
-        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.409, "source": "関西電力 排出係数 (目安)", "supplier": "関西電力"},
-        {"category": "power", "item_name": "電力", "unit": "kWh", "factor_value": 0.428, "source": "中部電力 排出係数 (目安)", "supplier": "中部電力"},
-        # Material
-        {"category": "material", "item_name": "鋼材", "unit": "t", "factor_value": 2000.0, "source": "環境省 排出係数"},
-        {"category": "material", "item_name": "コンクリート", "unit": "t", "factor_value": 300.0, "source": "環境省 排出係数"},
-        {"category": "material", "item_name": "生コン", "unit": "t", "factor_value": 300.0, "source": "環境省 排出係数"},
-        {"category": "material", "item_name": "セメント", "unit": "t", "factor_value": 750.0, "source": "環境省 排出係数"},
-        {"category": "material", "item_name": "アスファルト", "unit": "t", "factor_value": 200.0, "source": "環境省 排出係数"},
-        # Transport
-        {"category": "transport", "item_name": "一般輸送", "unit": "t-km", "factor_value": 0.172, "source": "環境省 排出係数 (トラック輸送)"},
-        {"category": "transport", "item_name": "船舶輸送", "unit": "t-km", "factor_value": 0.039, "source": "環境省 排出係数 (内航海運)"},
-        {"category": "machine", "item_name": "油圧ショベル", "unit": "h", "factor_value": 18.5, "source": "建機メーカーカタログ値 (目安)"},
-        {"category": "machine", "item_name": "クローラクレーン", "unit": "h", "factor_value": 32.0, "source": "建機メーカーカタログ値 (目安)"},
-        {"category": "ship", "item_name": "作業船", "unit": "h", "factor_value": 120.0, "source": "内航船排出原単位 (目安)"},
-        {"category": "waste", "item_name": "建設廃棄物", "unit": "t", "factor_value": 45.0, "source": "廃棄物処理原単位 (目安)"},
-        {"category": "business_travel", "item_name": "出張(鉄道)", "unit": "人-km", "factor_value": 0.021, "source": "環境省 排出係数 (鉄道)"},
-        {"category": "business_travel", "item_name": "出張(飛行機)", "unit": "人-km", "factor_value": 0.095, "source": "環境省 排出係数 (航空)"},
-        {"category": "commuting", "item_name": "通勤(車)", "unit": "人-km", "factor_value": 0.130, "source": "環境省 排出係数 (乗用車)"},
-        {"category": "water", "item_name": "上水道", "unit": "m3", "factor_value": 0.360, "source": "水道排出原単位 (目安)"},
-    ]
-
     added = 0
     skipped = 0
-    for f in factors:
+    for f in FACTORS:
         existing = crud.list_emission_factors(db, category=f["category"])
         already_exists = any(
             e.item_name == f["item_name"]
             and e.unit == f["unit"]
+            and e.effective_from == datetime.date.fromisoformat(f["effective_from"])
             and (e.supplier or None) == (f.get("supplier") or None)
             for e in existing
         )
@@ -66,7 +109,7 @@ def seed():
             item_name=f["item_name"],
             unit=f["unit"],
             factor_value=f["factor_value"],
-            effective_from=datetime.date(2026, 1, 1),
+            effective_from=datetime.date.fromisoformat(f["effective_from"]),
             source=f["source"],
             supplier=f.get("supplier"),
         )

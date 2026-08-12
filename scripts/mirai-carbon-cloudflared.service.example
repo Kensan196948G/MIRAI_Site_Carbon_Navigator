@@ -10,7 +10,7 @@ StartLimitBurst=5
 Type=simple
 # .env に MIRAI_TUNNEL_TOKEN を設定（Git にコミットしない）
 EnvironmentFile=/home/kensan/Projects/Mirai-DX-Project/MIRAI_Site_Carbon_Navigator/.env
-ExecStart=/bin/bash -c 'exec /usr/local/bin/cloudflared tunnel --no-autoupdate run --token "$MIRAI_TUNNEL_TOKEN"'
+ExecStart=/bin/bash -c 'export TUNNEL_TOKEN="$MIRAI_TUNNEL_TOKEN"; exec /usr/local/bin/cloudflared tunnel --no-autoupdate run'
 Restart=always
 RestartSec=10
 KillMode=mixed
