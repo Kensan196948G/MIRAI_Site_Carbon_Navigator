@@ -244,7 +244,6 @@ class TestProjectIsolation:
 
         from openpyxl import Workbook
 
-        admin = _login(app_env, "admin")
         site = _login(app_env, "site_tokyo")
         wb = Workbook()
         ws = wb.active

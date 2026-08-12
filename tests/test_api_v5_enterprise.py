@@ -12,7 +12,7 @@ from tests.conftest import make_activity, make_emission_factor, make_project
 class TestMultiStageApproval:
     def test_full_approval_flow(self, client_pair):
         admin, reviewer, site = client_pair
-        project = make_project(admin)
+        project = make_project(admin, branch="東京支店")
         activity = make_activity(admin, project["project_id"])
         aid = activity["activity_id"]
 
@@ -36,7 +36,7 @@ class TestMultiStageApproval:
 
     def test_invalid_transition_rejected(self, client_pair):
         admin, _, site = client_pair
-        project = make_project(admin)
+        project = make_project(admin, branch="東京支店")
         activity = make_activity(admin, project["project_id"])
         # draft -> approve_env is not allowed
         resp = site.put(
@@ -47,7 +47,7 @@ class TestMultiStageApproval:
 
     def test_reject_resets_to_draft(self, client_pair):
         admin, reviewer, site = client_pair
-        project = make_project(admin)
+        project = make_project(admin, branch="東京支店")
         activity = make_activity(admin, project["project_id"])
         site.put(f"/api/activities/{activity['activity_id']}/approval", json={"action": "submit"})
         resp = reviewer.put(

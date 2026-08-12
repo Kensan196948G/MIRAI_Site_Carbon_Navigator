@@ -8,7 +8,7 @@
 
 | 項目 | 結果 |
 |---|---|
-| pytest 全件 | 176 passed（改善前 163 → 改善後 176、うち新規セキュリティ回帰テスト 13 件） |
+| pytest 全件 | 178 passed（改善前 163 → 改善後 178、うち新規セキュリティ回帰テスト 15 件） |
 | アプリカバレッジ | 86%（`coverage run --source=app`） |
 | ruff | 0 error |
 | Docker build | 成功（`mirai-carbon-navigator:hardening-ci`） |

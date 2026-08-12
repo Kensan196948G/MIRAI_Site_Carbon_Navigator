@@ -206,11 +206,13 @@ def client_pair():
 # Helper factory functions
 # ---------------------------------------------------------------------------
 
-def make_project(client: TestClient, project_id_hint: str = "proj-001") -> dict:
+def make_project(
+    client: TestClient, project_id_hint: str = "proj-001", branch: str = "東北支店"
+) -> dict:
     """Create a project and return the response JSON."""
     payload = {
         "name": f"MIRAI港湾工事 ({project_id_hint})",
-        "branch": "東北支店",
+        "branch": branch,
         "work_type": "土木工事",
         "start_date": "2026-04-01",
         "end_date": "2026-09-30",

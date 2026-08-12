@@ -53,7 +53,7 @@ frontend/
 └── static/
     ├── css/style.css
     └── js/app.js
-tests/                   # pytest (176件)
+tests/                   # pytest (178件)
 ```
 
 ## 🚀 クイックスタート
@@ -292,7 +292,7 @@ PostgreSQL は `docker-compose.yml` の `db` サービスで自動起動し、ap
 ```bash
 pip install -r requirements.txt pytest httpx
 pytest tests/ -v
-# → 176 passed
+# → 178 passed
 ```
 
 ## 🔒 セキュリティ
