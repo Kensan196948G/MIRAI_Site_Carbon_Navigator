@@ -53,7 +53,7 @@ frontend/
 └── static/
     ├── css/style.css
     └── js/app.js
-tests/                   # pytest (178件)
+tests/                   # pytest (186件)
 ```
 
 ## 🚀 クイックスタート
@@ -78,6 +78,25 @@ API ドキュメントは `http://localhost:8000/docs` で確認できます。
 - 監視: `scripts/monitor.sh`（5分毎、`logs/monitor.log`）
 - Tunnel: user systemd サービス `mirai-carbon-cloudflared.service`（定義: [scripts/mirai-carbon-cloudflared.service.example](./scripts/mirai-carbon-cloudflared.service.example)）
 - 運用文書: [docs/operations/](./docs/operations/README.md)（SLO・Runbook・バックアップ/復元・監視・運用台帳・セキュリティ）
+
+## 🧪 MVP/Prototype レビュー環境（本番と分離）
+
+- URL: **https://carbon-mvp.mirai-dx-platform.com**（関係者レビュー用）
+- 構成: FastAPI + SQLite（`mvp_data/mirai_carbon_mvp.db`）+ Cloudflare Tunnel
+- データ: **全て架空のダミーデータ**（工事・活動量・SBTi・クレジット・通知・監査・異常値・未算定データを含む）
+- 詳細: [docs/operations/MVP_ENVIRONMENT.md](./docs/operations/MVP_ENVIRONMENT.md)
+
+### デモ用ログイン（開発・レビュー専用）
+
+| ユーザー名 | パスワード | ロール |
+|---|---|---|
+| demo_admin | DemoAdmin!2026 | CarbonAdmin |
+| demo_reviewer | DemoReviewer!2026 | EnvironmentReviewer |
+| demo_site_tokyo | DemoSiteTokyo!2026 | SiteInput（東京支店） |
+| demo_site_osaka | DemoSiteOsaka!2026 | SiteInput（大阪支店） |
+| demo_client | DemoClient!2026 | Client（発注者） |
+
+再構築: `scripts/start_mvp.sh` → `scripts/setup_mvp_tunnel.sh` → `scripts/smoke_mvp.sh`
 
 ### Docker 起動
 

@@ -29,6 +29,17 @@
 | 21 | コード品質 | security.py の循環 import を解消（遅延 import 化） | 中 | app/security.py | 全テスト |
 | 22 | 文書 | 評価・台帳・証跡・ロードマップ追加、README を実態へ更新 | 中 | docs/, README.md | - |
 
+## 2026-08-14 MVP/Prototype レビュー対応（追記）
+
+| # | 分類 | 内容 | 影響度 | 変更箇所 | 証跡 |
+|---|---|---|---|---|---|
+| 23 | セキュリティ | site の明示 `project_id` 指定による他支店閲覧漏れを修正（`has_project_access` に支店境界追加、actions/feedbacks/closes 一覧も 403） | 重大 | app/crud.py, app/routers/{actions,feedbacks,closes}.py | tests/test_security_hardening.py |
+| 24 | セキュリティ | `crud.create_user` が branch/email を保存しない問題を修正 | 高 | app/crud.py | 同テスト |
+| 25 | MVP | 架空ダミーデータ一式を投入する `scripts/seed_mvp_demo.py` を追加（冪等） | - | scripts/ | tests/test_mvp_demo_seed.py |
+| 26 | MVP | デモ環境バナー（`/api/meta` + `MIRAI_DEMO_MODE`）を追加 | 中 | app/main.py, frontend/ | 公開 URL で確認 |
+| 27 | MVP | MVP 専用トンネル・systemd・起動/検証スクリプト一式を追加し公開 | - | scripts/, docs/operations/MVP_ENVIRONMENT.md | https://carbon-mvp.mirai-dx-platform.com |
+| 28 | テスト | 認可回帰 2 件 + デモシード統合 2 件を追加（計 186 passed / coverage 87%） | 中 | tests/ | CI 実行 |
+
 ## 残課題（優先度順）
 
 | # | 課題 | 影響度 | 必要操作 |
@@ -43,3 +54,11 @@
 | 8 | トークン有効期限 12h・リフレッシュ/失効機能 | 中 | 認証設計の拡張 |
 | 9 | 監査ログへの IP・UA 記録 | 低 | ログ項目拡張 |
 | 10 | ライセンスファイル・NOTICE 整備 | 低 | 依存ライセンスの整理 |
+
+## 2026-08-14 追記（MVP 後）
+
+| # | 課題 | 影響度 | 備考 |
+|---|---|---|---|
+| 11 | ブラウザ E2E（Playwright）・負荷試験 | 中 | MVP レビュー後・本番 PoC 前に実施 |
+| 12 | 実 SMTP/Teams 通知試験 | 高 | M365 資格情報提供待ち |
+| 13 | 実地 PoC（2現場） | 高 | 9/1 開始予定のまま |

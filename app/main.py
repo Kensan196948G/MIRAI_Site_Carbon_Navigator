@@ -168,6 +168,15 @@ def ready():
         return JSONResponse(status_code=503, content={"status": "not_ready", "db": "error"})
 
 
+@app.get("/api/meta", include_in_schema=False)
+def meta():
+    return {
+        "version": __version__,
+        "environment": os.getenv("MIRAI_ENV", "development"),
+        "demo_mode": os.getenv("MIRAI_DEMO_MODE", "0") == "1",
+    }
+
+
 # Include routers
 app.include_router(auth.router)
 app.include_router(users.router)

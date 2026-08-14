@@ -5,7 +5,7 @@
     "release_deadline": "2026-12-17",
     "phase_mode": "development"
   },
-  "goal": "MVP Release Candidate 完成 — 全機能動作確認・CI成功・PR作成済み",
+  "goal": "MVP/Prototype レビュー環境完成 — 架空ダミーデータ投入・P0修正・CI成功・PR作成・公開URL稼働",
   "phase": "Verify",
   "kpi": {
     "success_rate_target": 0.9,
@@ -51,14 +51,22 @@
     "DATA-01: 排出係数一次情報突合台帳と反映スクリプト追加",
     "Tests: 178件全通過（残課題対応後）",
     "OPS-04: SMTP/Teams通知経路の単体テスト追加（計182件）",
-    "DATA-02: R6確定排出係数（2026-06-04更新）と生コン・アスファルト一次情報値を反映"
+    "DATA-02: R6確定排出係数（2026-06-04更新）と生コン・アスファルト一次情報値を反映",
+    "MVP-01: siteの他支店閲覧漏れ（明示project_id）を修正し回帰テスト追加",
+    "MVP-02: create_userのbranch/email欠落を修正し回帰テスト追加",
+    "MVP-03: 架空ダミーデータシード（seed_mvp_demo.py）と検証スクリプトを追加",
+    "MVP-04: デモ環境バナー（/api/meta + MIRAI_DEMO_MODE）を追加",
+    "MVP-05: MVP公開環境を構築（carbon-mvp.mirai-dx-platform.com, systemd, Cloudflare Tunnel）",
+    "MVP-06: pytest 186件 / ruff 0 / coverage 87% でCI緑を確認",
+    "Tests: 186件全通過（MVP対応後）"
   ],
   "blocked_issues": [],
   "learning": {
     "failure_patterns": [
       "UI実装があっても静的マウントパスが違うと画面全体が機能しない",
       "APIのリスト系エンドポイントはproject_id省略時に全データを返すため、利用者別フィルタが必須",
-      "開発用シードが本番起動毎に実行される構成は既定認証情報を永続化する"
+      "開発用シードが本番起動毎に実行される構成は既定認証情報を永続化する",
+      "has_project_accessがclient以外を常に許可する実装だと、明示project_idで支店境界を迂回できる"
     ],
     "success_patterns": [
       "FastAPI + SQLite + SQLAlchemy でMVPを高速構築",

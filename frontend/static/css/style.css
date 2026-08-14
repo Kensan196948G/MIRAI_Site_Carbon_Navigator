@@ -386,6 +386,17 @@ tr.approved-row td {
   overflow: hidden;
 }
 
+/* ===== MVP demo banner ===== */
+.demo-banner {
+  background: var(--warning-bg, #fff3cd);
+  border-bottom: 1px solid #ffc107;
+  color: #664d03;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.55rem 1.25rem;
+  text-align: center;
+}
+
 /* ===== Responsive adjustments ===== */
 @media (max-width: 768px) {
   .filter-bar {
