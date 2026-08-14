@@ -40,6 +40,13 @@
 | 27 | MVP | MVP 専用トンネル・systemd・起動/検証スクリプト一式を追加し公開 | - | scripts/, docs/operations/MVP_ENVIRONMENT.md | https://carbon-mvp.mirai-dx-platform.com |
 | 28 | テスト | 認可回帰 2 件 + デモシード統合 2 件を追加（計 186 passed / coverage 87%） | 中 | tests/ | CI 実行 |
 
+## 2026-08-14 ブラウザ検証フィードバック対応（追記）
+
+| # | 分類 | 内容 | 影響度 | 変更箇所 | 証跡 |
+|---|---|---|---|---|---|
+| 29 | セキュリティ/UI | CSP に `script-src-attr 'unsafe-inline'` と Cloudflare Insights の明示許可を追加（onclick 復旧・ビーコン許可） | 中 | app/main.py | tests/test_security_hardening.py、ブラウザ確認 |
+| 30 | UI | favicon.svg 追加 + `/favicon.ico` ルートで 404 解消 | 低 | frontend/, app/main.py | 同テスト |
+
 ## 残課題（優先度順）
 
 | # | 課題 | 影響度 | 必要操作 |

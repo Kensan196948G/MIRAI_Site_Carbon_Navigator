@@ -99,3 +99,12 @@
 - ブラウザ E2E（Playwright）・実機モバイル（従来から未実施）
 - 負荷試験（600 名同時利用想定、MVP はレビュー用途のため対象外）
 - 実 SMTP/Teams 通知試験（M365 資格情報待ち）
+
+## 2026-08-14 ブラウザ検証フィードバック対応（追記）
+
+| 項目 | 結果 |
+|---|---|
+| Cloudflare Insights ブロック | CSP の `script-src` に `https://static.cloudflareinsights.com`、`connect-src` に `https://cloudflareinsights.com` を明示許可 |
+| インライン onclick ブロック | CSP3 の `script-src-attr 'unsafe-inline'` を追加し、静的 SPA のボタンハンドラを復旧（script 要素自体は `'self'` のまま） |
+| favicon 404 | `/static/favicon.svg` を追加し `<link rel="icon">` と `/favicon.ico` ルートを用意（200 を確認） |
+| 回帰テスト | 上記 3 点を `test_security_hardening.py` に追加（計 188 passed / ruff 0 error） |
