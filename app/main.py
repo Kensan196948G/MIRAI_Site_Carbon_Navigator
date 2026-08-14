@@ -106,10 +106,11 @@ async def security_headers(request: Request, call_next):
     response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self'; "
+        "script-src 'self' https://static.cloudflareinsights.com; "
+        "script-src-attr 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
-        "connect-src 'self'; "
+        "connect-src 'self' https://cloudflareinsights.com; "
         "font-src 'self'"
     )
     if os.getenv("MIRAI_ENABLE_HSTS", "0") == "1":
@@ -205,6 +206,16 @@ app.include_router(admin.router)
 # references like /static/css/style.css resolve to frontend/static/css/style.css)
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 static_dir = os.path.join(frontend_dir, "static")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    favicon_path = os.path.join(static_dir, "favicon.svg")
+    if os.path.isfile(favicon_path):
+        return FileResponse(favicon_path, media_type="image/svg+xml")
+    return JSONResponse(status_code=404, content={"detail": "favicon not found"})
+
+
 if os.path.isdir(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 

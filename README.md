@@ -53,7 +53,7 @@ frontend/
 └── static/
     ├── css/style.css
     └── js/app.js
-tests/                   # pytest (186件)
+tests/                   # pytest (188件)
 ```
 
 ## 🚀 クイックスタート
@@ -323,6 +323,7 @@ pytest tests/ -v
 - OIDC ログインはワンタイムコード交換方式（URL にトークンを載せない）
 - ログイン失敗は 15分/10回で一時ロック、パスワードは10文字以上
 - フロントエンド資材は自己ホスト（CDN 依存なし）、CSP は `'self'` ベース
+- CSP は `script-src-attr 'unsafe-inline'` でボタンハンドラを許可し、Cloudflare Insights は明示許可
 - 全量エクスポートにパスワードハッシュ・TOTP 秘密・oidc_sub は含めない
 - 支店（site）・発注者（client）のデータは割当範囲に限定して参照・操作可能
 - 本番コンテナは `MIRAI_SECRET_KEY` 未設定なら起動拒否（fail-closed）

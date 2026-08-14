@@ -171,6 +171,8 @@ class TestStaticAssets:
             "/",
             "/static/css/style.css",
             "/static/js/app.js",
+            "/static/favicon.svg",
+            "/favicon.ico",
             "/static/vendor/bootstrap.min.css",
             "/static/vendor/bootstrap.bundle.min.js",
             "/static/vendor/chart.umd.min.js",
@@ -183,6 +185,20 @@ class TestStaticAssets:
         admin = _login(app_env, "admin")
         csp = admin.get("/").headers["content-security-policy"]
         assert "cdn.jsdelivr.net" not in csp
+
+    def test_csp_allows_inline_handlers_and_cloudflare_beacon(self, app_env):
+        admin = _login(app_env, "admin")
+        csp = admin.get("/").headers["content-security-policy"]
+        # Inline onclick handlers (static SPA buttons) must keep working.
+        assert "script-src-attr 'unsafe-inline'" in csp
+        # Cloudflare Web Analytics beacon is explicitly allowed.
+        assert "https://static.cloudflareinsights.com" in csp
+        assert "https://cloudflareinsights.com" in csp
+
+    def test_favicon_is_linked(self, app_env):
+        admin = _login(app_env, "admin")
+        index = admin.get("/").text
+        assert "/static/favicon.svg" in index
 
 
 class TestProjectIsolation:
