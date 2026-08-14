@@ -31,7 +31,7 @@ body {
 
 .navbar-brand {
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1rem;
   letter-spacing: 0.02em;
 }
 
@@ -43,9 +43,33 @@ body {
 .navbar .nav-link {
   color: rgba(255,255,255,0.85) !important;
   font-weight: 500;
-  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.55rem;
+  white-space: nowrap;
   border-radius: 6px;
   transition: background 0.2s, color 0.2s;
+}
+
+.navbar .nav-link i {
+  font-size: 0.9rem;
+}
+
+.navbar-nav {
+  gap: 0.12rem !important;
+  flex-wrap: nowrap;
+}
+
+.navbar-collapse {
+  flex-wrap: nowrap;
+}
+
+.navbar .btn-sm {
+  font-size: 0.78rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.navbar .navbar-text {
+  font-size: 0.8rem;
 }
 
 .navbar .nav-link:hover,
