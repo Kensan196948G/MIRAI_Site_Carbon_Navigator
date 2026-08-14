@@ -200,6 +200,15 @@ class TestStaticAssets:
         index = admin.get("/").text
         assert "/static/favicon.svg" in index
 
+    def test_html_not_cached_and_assets_versioned(self, app_env):
+        admin = _login(app_env, "admin")
+        index_resp = admin.get("/")
+        assert index_resp.headers.get("cache-control") == "no-store"
+        assert "style.css?v=20260814" in index_resp.text
+        assert "app.js?v=20260814b" in index_resp.text
+        favicon_resp = admin.get("/favicon.ico")
+        assert favicon_resp.headers.get("cache-control") == "no-store"
+
 
 class TestProjectIsolation:
     def test_site_sees_only_own_branch_in_unfiltered_lists(self, app_env):

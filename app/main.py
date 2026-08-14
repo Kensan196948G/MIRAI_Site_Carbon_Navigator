@@ -212,7 +212,9 @@ static_dir = os.path.join(frontend_dir, "static")
 async def favicon():
     favicon_path = os.path.join(static_dir, "favicon.svg")
     if os.path.isfile(favicon_path):
-        return FileResponse(favicon_path, media_type="image/svg+xml")
+        response = FileResponse(favicon_path, media_type="image/svg+xml")
+        response.headers["Cache-Control"] = "no-store"
+        return response
     return JSONResponse(status_code=404, content={"detail": "favicon not found"})
 
 
@@ -223,7 +225,11 @@ if os.path.isdir(static_dir):
     async def serve_index():
         index_path = os.path.join(frontend_dir, "index.html")
         if os.path.isfile(index_path):
-            return FileResponse(index_path)
+            response = FileResponse(index_path)
+            # Never cache the SPA shell: CSP/UI updates must reach browsers
+            # immediately (Cloudflare edge + browser heuristic caching).
+            response.headers["Cache-Control"] = "no-store"
+            return response
         return {"message": "MIRAI Site Carbon Navigator API"}
 else:
     @app.get("/", include_in_schema=False)
