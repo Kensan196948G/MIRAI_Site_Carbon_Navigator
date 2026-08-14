@@ -13,6 +13,7 @@ MIRAI Site Carbon Navigator の本番運用に必要な文書です。
 | [NOTIFICATIONS_SETUP.md](./NOTIFICATIONS_SETUP.md) | SMTP/Teams 通知チャネルの設定手順と通知試験 |
 | [EMISSION_FACTORS_RECONCILIATION.md](./EMISSION_FACTORS_RECONCILIATION.md) | 排出係数の一次情報突合台帳・適用開始日・出典 |
 | [POC_PLAN.md](./POC_PLAN.md) | Phase 8: 2現場実地PoCの計画・準備タスク・受入基準 |
+| [MVP_ENVIRONMENT.md](./MVP_ENVIRONMENT.md) | MVP/Prototype レビュー環境（URL・アカウント・ダミーデータ・再構築手順） |
 
 ## 本番環境の一意特定情報
 

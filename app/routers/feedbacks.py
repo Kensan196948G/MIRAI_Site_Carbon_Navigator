@@ -17,6 +17,8 @@ def list_feedbacks(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    if project_id and not crud.has_project_access(db, user, project_id):
+        raise HTTPException(status_code=403, detail="Project access denied")
     feedbacks = crud.list_site_feedbacks(
         db, project_id=project_id, target_month=target_month, status=status
     )

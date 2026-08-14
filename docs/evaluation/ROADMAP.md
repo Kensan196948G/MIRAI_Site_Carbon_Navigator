@@ -35,3 +35,10 @@
 - 負荷試験・SLO ダッシュボード・障害自動復旧
 - 第三者検証（脆弱性診断・保証レビュー）と ISO27001 等の監査対応
 - 完了基準: SLO 達成実績、診断結果 0 critical、本番利用判定
+
+## 2026-08-14 追記: MVP/Prototype レビュー環境
+
+- ✅ 関係者レビュー用 MVP を公開（https://carbon-mvp.mirai-dx-platform.com）
+- ✅ P0 認可漏れ（site の他支店閲覧）とユーザー作成時の支店欠落を修正
+- ✅ 架空ダミーデータ一式・検証スクリプト・起動手順を整備（`docs/operations/MVP_ENVIRONMENT.md`）
+- ⏭ 残: ブラウザ E2E、実 SMTP/Teams 通知試験、実地 PoC（9/1 予定）

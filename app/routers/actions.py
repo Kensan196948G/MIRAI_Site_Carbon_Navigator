@@ -17,6 +17,8 @@ def list_actions(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    if project_id and not crud.has_project_access(db, user, project_id):
+        raise HTTPException(status_code=403, detail="Project access denied")
     actions = crud.list_reduction_actions(
         db, project_id=project_id, target_month=target_month, status=status
     )

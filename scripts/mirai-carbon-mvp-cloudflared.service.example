@@ -1,0 +1,23 @@
+[Unit]
+Description=MIRAI Site Carbon Navigator MVP Cloudflare Tunnel (carbon-mvp.mirai-dx-platform.com)
+Documentation=https://github.com/Kensan196948G/MIRAI_Site_Carbon_Navigator
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=200
+StartLimitBurst=5
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate --config %h/.cloudflared/mirai-carbon-mvp-config.yml tunnel run
+Restart=always
+RestartSec=10
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mirai-carbon-mvp-cloudflared
+
+[Install]
+WantedBy=default.target

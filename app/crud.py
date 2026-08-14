@@ -736,6 +736,8 @@ def create_user(db: Session, user: schemas.UserCreate, actor: str = "system"):
         display_name=user.display_name or user.username,
         password_hash=hash_password(user.password),
         role=user.role,
+        branch=user.branch,
+        email=user.email,
         is_active=True,
         created_at=utcnow(),
     )
@@ -1269,6 +1271,9 @@ def accessible_project_ids(db: Session, user: models.User) -> list[str]:
 
 def has_project_access(db: Session, user: models.User, project_id: str) -> bool:
     if user.role != "client":
+        if user.role == "site" and user.branch:
+            project = get_project(db, project_id)
+            return project is not None and project.branch == user.branch
         return True
     return (
         db.query(models.UserProjectAccess)

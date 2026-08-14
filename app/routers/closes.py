@@ -16,6 +16,8 @@ def list_closes(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    if project_id and not crud.has_project_access(db, user, project_id):
+        raise HTTPException(status_code=403, detail="Project access denied")
     closes = crud.list_monthly_closes(db, project_id=project_id, target_month=target_month)
     if project_id is None:
         allowed = set(crud.project_ids_for_user(db, user))

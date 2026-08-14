@@ -300,6 +300,109 @@ class TestProjectIsolation:
         assert resp.status_code == 403
 
 
+class TestSiteCrossBranchReadIsolation:
+    """Regression: site users must not read another branch via explicit project_id."""
+
+    def test_site_cannot_read_other_branch_with_explicit_project_id(self, app_env):
+        admin = _login(app_env, "admin")
+        site = _login(app_env, "site_tokyo")
+        projects = _seed_projects_and_activity(app_env, admin)
+        osaka_id = projects["osaka"]["project_id"]
+        osaka_activity_id = projects["osaka_activity"]["activity_id"]
+        tokyo_id = projects["tokyo"]["project_id"]
+
+        admin.post(
+            "/api/actions",
+            json={
+                "project_id": osaka_id,
+                "target_month": "2026-05",
+                "category": "fuel",
+                "suggestion": "デモ削減アクション",
+                "status": "planned",
+            },
+        )
+        admin.post(
+            "/api/feedbacks",
+            json={
+                "project_id": osaka_id,
+                "target_month": "2026-05",
+                "category": "fuel",
+                "content": "デモフィードバック",
+            },
+        )
+        admin.post(
+            "/api/closes",
+            json={"project_id": osaka_id, "target_month": "2026-05"},
+        )
+
+        blocked_paths = [
+            f"/api/projects/{osaka_id}",
+            f"/api/activities?project_id={osaka_id}",
+            f"/api/activities/{osaka_activity_id}/comments",
+            f"/api/activities/{osaka_activity_id}/history",
+            f"/api/emissions/results?project_id={osaka_id}",
+            f"/api/emissions/summary?project_id={osaka_id}&target_month=2026-05",
+            f"/api/emissions/trend?project_id={osaka_id}",
+            f"/api/emissions/scope-summary?project_id={osaka_id}&target_month=2026-05",
+            f"/api/emissions/benchmark?project_id={osaka_id}&target_month=2026-05",
+            f"/api/emissions/anomalies?project_id={osaka_id}&target_month=2026-05",
+            f"/api/emissions/missing-factors?project_id={osaka_id}&target_month=2026-05",
+            f"/api/emissions/comparison?project_id={osaka_id}&target_month=2026-05",
+            f"/api/emissions/forecast?project_id={osaka_id}",
+            f"/api/assistant/suggestions?project_id={osaka_id}&target_month=2026-05",
+            f"/api/reports/monthly/{osaka_id}/2026-05",
+            f"/api/reports/card/{osaka_id}",
+            f"/api/actions?project_id={osaka_id}",
+            f"/api/feedbacks?project_id={osaka_id}",
+            f"/api/closes?project_id={osaka_id}",
+        ]
+        for path in blocked_paths:
+            assert site.get(path).status_code == 403, path
+
+        # Positive control: the site user can still read own-branch data explicitly.
+        assert site.get(f"/api/activities?project_id={tokyo_id}").status_code == 200
+        assert site.get(f"/api/projects/{tokyo_id}").status_code == 200
+
+    def test_created_site_user_keeps_branch_scoping(self, app_env):
+        admin = _login(app_env, "admin")
+        projects = _seed_projects_and_activity(app_env, admin)
+
+        created = admin.post(
+            "/api/users",
+            json={
+                "username": "site_osaka_new",
+                "password": "SiteOsaka!2026",
+                "display_name": "大阪新規担当",
+                "role": "site",
+                "branch": "大阪支店",
+                "email": "site_osaka_new@example.local",
+            },
+        )
+        assert created.status_code == 201, created.text
+        assert created.json()["branch"] == "大阪支店"
+
+        client = TestClient(fastapi_app)
+        resp = client.post(
+            "/api/auth/login",
+            json={"username": "site_osaka_new", "password": "SiteOsaka!2026"},
+        )
+        assert resp.status_code == 200, resp.text
+        client.headers.update({"Authorization": f"Bearer {resp.json()['access_token']}"})
+
+        # The new user sees only their assigned branch, even with explicit IDs.
+        assert client.get(
+            f"/api/projects/{projects['tokyo']['project_id']}"
+        ).status_code == 403
+        assert client.get(
+            f"/api/activities?project_id={projects['tokyo']['project_id']}"
+        ).status_code == 403
+        assert client.get(
+            f"/api/projects/{projects['osaka']['project_id']}"
+        ).status_code == 200
+        project_ids = {p["project_id"] for p in client.get("/api/projects").json()}
+        assert project_ids == {projects["osaka"]["project_id"]}
+
+
 class TestExportSecrets:
     def test_export_excludes_totp_and_password_hash(self, app_env):
         admin = _login(app_env, "admin")

@@ -81,3 +81,21 @@
 - `tests/test_notifications.py` を追加（SMTP 送信成功・未設定時 false、Teams webhook 送信成功・未設定時 false）
 - pytest は通知テスト 4 件を追加し **182 passed / ruff 0 error**
 - 実 SMTP/Teams への送信は M365 資格情報・Webhook URL 提供後の `scripts/configure_notifications.sh` で確認する
+
+## 2026-08-14 MVP/Prototype レビュー環境（追記）
+
+| 項目 | 結果 |
+|---|---|
+| P0 認可漏れ修正 | site が明示 `project_id` で他支店データを参照できた問題を修正。`has_project_access` に site 支店境界を追加し、actions/feedbacks/closes の一覧にも 403 を適用。回帰テスト 2 件追加 |
+| ユーザー作成の支店欠落修正 | `crud.create_user` が branch/email を保存していなかった問題を修正。回帰テスト 1 件追加 |
+| MVP デモデータ | `scripts/seed_mvp_demo.py` 追加（架空データのみ）。工事 2 件・活動量 131 件・算定結果 119 件・承認ワークフロー 12 件・SBTi 3 件・クレジット 3 件・締め 2 件・通知 5 件・発注者割当 2 件・異常値/未算定デモを含む |
+| 動作検証スクリプト | `scripts/verify_mvp_demo.py`（統合チェック）と `scripts/smoke_mvp.sh`（公開 URL 経由スモーク）を追加 |
+| テスト | **186 passed**（+4: 認可回帰 2、デモシード統合 2）/ ruff 0 error / アプリカバレッジ 87% / node 構文 OK |
+| MVP 公開 | https://carbon-mvp.mirai-dx-platform.com を新トンネル `mirai-carbon-mvp` で公開。health 200・静的ファイル 200・demo_admin ログイン成功・ダッシュボード project_count=2 |
+| ドキュメント | `docs/operations/MVP_ENVIRONMENT.md` 追加、README・運用索引・ロードマップ・改善台帳を更新 |
+
+### 残りの検証（未実施）
+
+- ブラウザ E2E（Playwright）・実機モバイル（従来から未実施）
+- 負荷試験（600 名同時利用想定、MVP はレビュー用途のため対象外）
+- 実 SMTP/Teams 通知試験（M365 資格情報待ち）

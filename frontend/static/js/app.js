@@ -3011,8 +3011,20 @@ async function downloadAnnualReport() {
   }
 }
 
+// ===== Environment metadata / demo banner =====
+async function loadMeta() {
+  try {
+    const meta = await fetchJSON('/api/meta');
+    const banner = document.getElementById('demoBanner');
+    if (meta.demo_mode && banner) banner.classList.remove('d-none');
+  } catch (err) {
+    // Metadata is optional; the app still works without it.
+  }
+}
+
 // ===== Init =====
 document.addEventListener('DOMContentLoaded', () => {
+  loadMeta();
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   ['actMonthPicker', 'calcMonthPicker', 'rptMonthPicker'].forEach(id => {
